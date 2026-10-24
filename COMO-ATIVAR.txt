@@ -1,0 +1,34 @@
+ESPAÇO DO CELULAR - LANDING PAGE + CENTRAL DE LEADS
+====================================================
+
+O QUE TEM NESTE ARQUIVO
+- index.html ........ página principal (lojas, vitrine, botões de WhatsApp, botão "Área da loja" no rodapé)
+- pre-analise.html .. formulário de pré-análise + tela de pré-aprovado com "Finalize a compra com vendedor"
+- central.html ...... central de leads (login por loja)
+- lojas.js .......... lista das lojas e números de WhatsApp
+- api/ .............. funções do servidor (salvar leads, contar cliques, login da central, envio ao CRM)
+- videos/ ........... vídeos de depoimentos
+- vercel.json, .vercelignore, .env.example (nomes das configurações)
+
+PUBLICAÇÃO AUTOMÁTICA
+Este repositório (GitHub vicentejrmarketing/espacodocelularlp) está ligado ao projeto espacodocelularloja na Vercel:
+cada atualização enviada ao GitHub publica o site sozinha.
+
+ATIVAR A CENTRAL (uma vez só, na Vercel, projeto espacodocelularloja)
+1) Storage > Create Database > Upstash for Redis (grátis) > conectar ao projeto.
+   (É onde os leads e os cliques ficam guardados. Sem isso a central não funciona.)
+2) Os acessos das lojas já estão cadastrados na variável CENTRAL_ACESSOS (sem senhas, só o resumo delas).
+
+ACESSOS
+- Itajaí ....... itajaiedc@gmail.com
+- Navegantes ... espacodocelular44@gmail.com
+- Camboriú ..... edccamboriu1@gmail.com
+- Gerente ...... usuário: gerente   (vê todas as lojas)
+Cada loja vê só os próprios leads e cliques.
+
+TROCAR UMA SENHA
+- Mais simples: crie na Vercel CENTRAL_SENHA_ITAJAI / CENTRAL_SENHA_NAVEGANTES / CENTRAL_SENHA_CAMBORIU (mín. 8 caracteres).
+  Ela passa a valer no lugar da senha atual daquela loja.
+
+ACESSAR A CENTRAL
+- Botão "Área da loja" no canto inferior direito do rodapé do site, ou  seusite/central.html

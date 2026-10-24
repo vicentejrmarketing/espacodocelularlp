@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+.vercel
+node_modules/
+tests/saida-servidor-*.log
+tests/resultado.json
+tests/evidencia-*.png
+INTEGRACAO-CRM.md

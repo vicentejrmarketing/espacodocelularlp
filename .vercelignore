@@ -1,0 +1,5 @@
+tests/
+INTEGRACAO-CRM.md
+.env.example
+.gitignore
+COMO-ATIVAR.txt

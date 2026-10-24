@@ -1,0 +1,9 @@
+{
+  "functions": {
+    "api/cadastro.js": { "maxDuration": 20 },
+    "api/cadastro-reprocessar.js": { "maxDuration": 40 }
+  },
+  "crons": [
+    { "path": "/api/cadastro-reprocessar", "schedule": "0 12 * * *" }
+  ]
+}
