@@ -21,7 +21,11 @@ def login_email(e, s, ip="9.9.9.9"): return req("POST", "/api/central", {"email"
 def login(a, s=None, ip="9.9.9.9"): return login_email(CRED[a][0], CRED[a][1] if s is None else s, ip)
 def painel(t): return req("GET", "/api/central", None, {"authorization": "Bearer " + t})
 
-sim = subprocess.Popen(["node", os.path.join(RAIZ, "tests", "simulador.js"), RAIZ, str(PORTA), "kv"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+# Modo: "kv" (padrão) ou "supabase" (precisa de SIM_SUPA_PG apontando para um Postgres com supabase/central.sql aplicado)
+MODO = sys.argv[1] if len(sys.argv) > 1 else "kv"
+print("MODO:", MODO)
+sim = subprocess.Popen(["node", os.path.join(RAIZ, "tests", "simulador.js"), RAIZ, str(PORTA), "kv"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                       env=dict(os.environ) if MODO == "supabase" else {k: v for k, v in os.environ.items() if not k.startswith("SIM_SUPA")})
 try:
     time.sleep(1.5)
     ids = {}
@@ -47,6 +51,9 @@ try:
     ok("L7 sem token ou com token adulterado: 401", painel("")[0] == 401 and painel(fake)[0] == 401)
     codes = [login("camboriu", "errada%d" % n, "7.7.7.7")[0] for n in range(11)]
     ok("L8 força bruta bloqueia após 10 erros (mesmo com a senha certa)", codes[-1] == 429 and login("camboriu", None, "7.7.7.7")[0] == 429)
+    if MODO == "supabase":
+        dump = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PORTA + 2}/__dump").read())
+        ok("S0 no modo Supabase nada da central vai para o KV", not any(k.endswith("_central") for k in dump["comandos"]), dump["comandos"])
     ok("L9 clique de loja inválida é recusado", req("POST", "/api/clique", {"loja": "xpto", "origem": "site"}, {"content-type": "text/plain"})[0] == 422)
 
     with sync_playwright() as p:

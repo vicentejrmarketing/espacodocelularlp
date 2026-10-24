@@ -133,6 +133,30 @@ Object.assign(process.env, {
     "gerente": { acesso: "geral", senha: resumo("Teste-Gerente-1") },
   }),
 });
+// ---------------- Supabase simulado (opcional): API /rest/v1/rpc/<função> em cima de um Postgres local ----------------
+// SIM_SUPA_PG=postgres://... e SIM_PG_MODULE=<caminho do módulo pg>. Executa as MESMAS funções de supabase/central.sql como role anon.
+if (process.env.SIM_SUPA_PG) {
+  const { Pool } = require(process.env.SIM_PG_MODULE || "pg");
+  const pool = new Pool({ connectionString: process.env.SIM_SUPA_PG, max: 4 });
+  const ARGS = { central_salvar_lead: ["p_segredo", "p_lead"], central_clique: ["p_segredo", "p_loja", "p_origem", "p_dedupe", "p_lead_id"], central_tentativas: ["p_segredo", "p_chave", "p_acao"], central_dados: ["p_segredo", "p_lojas", "p_dias"] };
+  http.createServer((req, res) => {
+    let b = ""; req.on("data", (c) => (b += c)); req.on("end", async () => {
+      const m = /^\/rest\/v1\/rpc\/(\w+)$/.exec(req.url);
+      if (!m || !ARGS[m[1]] || req.headers.apikey !== "chave-publica-teste") { res.statusCode = 401; return res.end("{}"); }
+      const body = JSON.parse(b || "{}"), nomes = ARGS[m[1]];
+      const vals = nomes.map((n) => (n === "p_lead" ? JSON.stringify(body[n]) : body[n]));
+      const cli = await pool.connect();
+      try {
+        await cli.query("begin"); await cli.query("set local role anon");
+        const r = await cli.query(`select public.${m[1]}(${nomes.map((n, i) => n + " => $" + (i + 1)).join(", ")}) as r`, vals);
+        await cli.query("commit");
+        res.setHeader("content-type", "application/json"); res.end(JSON.stringify(r.rows[0].r));
+      } catch (e) { await cli.query("rollback").catch(() => {}); res.statusCode = 400; res.end(JSON.stringify({ message: String(e.message) })); }
+      finally { cli.release(); }
+    });
+  }).listen(PORT + 3);
+  Object.assign(process.env, { CENTRAL_SUPABASE_URL: `http://127.0.0.1:${PORT + 3}`, CENTRAL_SUPABASE_KEY: "chave-publica-teste", CENTRAL_DB_SEGREDO: process.env.SIM_SUPA_SEGREDO || "" });
+}
 if (USA_KV) Object.assign(process.env, { KV_REST_API_URL: `http://127.0.0.1:${PORT + 2}`, KV_REST_API_TOKEN: "token-kv-teste" });
 const cad = require(path.join(ROOT, "api", "cadastro.js")), rep = require(path.join(ROOT, "api", "cadastro-reprocessar.js"));
 const clique = require(path.join(ROOT, "api", "clique.js")), central = require(path.join(ROOT, "api", "central.js"));

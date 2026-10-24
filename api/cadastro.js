@@ -128,13 +128,11 @@ async function handler(req, res) {
   //   entregue = o CRM confirmou o recebimento conforme o contrato.
   const store = getStore(env);
   // Central de leads da loja: guarda o lead (uma vez por external_id), independente do CRM.
-  if (store) {
-    await salvarLead(store, cadastro).catch(() =>
-      console.error(JSON.stringify({ evento: "central_leads", external_id: id, estado: "falha_ao_salvar", nivel: "alerta" }))
-    );
-  } else {
-    console.error(JSON.stringify({ evento: "central_leads", external_id: id, estado: "armazenamento_nao_configurado", nivel: "alerta" }));
-  }
+  const salvo = await salvarLead(env, cadastro).catch(() => {
+    console.error(JSON.stringify({ evento: "central_leads", external_id: id, estado: "falha_ao_salvar", nivel: "alerta" }));
+    return false;
+  });
+  if (salvo === null) console.error(JSON.stringify({ evento: "central_leads", external_id: id, estado: "armazenamento_nao_configurado", nivel: "alerta" }));
   if (store) {
     try {
       const reg = await registrar(store, cadastro);

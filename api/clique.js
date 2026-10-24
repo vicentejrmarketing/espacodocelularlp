@@ -2,8 +2,7 @@
 // Corpo: {"loja":"itajai","origem":"site"|"pre-analise","id":"<external_id opcional>"}
 // Não grava IP: o endereço só entra num resumo (hash) de 3 segundos para não contar clique duplo.
 
-const { getStore } = require("./_store");
-const { registrarClique, ipDe } = require("./_central");
+const { registrarClique, ipDe, base } = require("./_central");
 
 async function lerCorpo(req) {
   if (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) return req.body;
@@ -30,14 +29,13 @@ module.exports = async function (req, res) {
     res.statusCode = 400;
     return res.end();
   }
-  const store = getStore(process.env);
-  if (!store) {
+  if (!base(process.env)) {
     console.error(JSON.stringify({ evento: "central_cliques", estado: "armazenamento_nao_configurado", nivel: "alerta" }));
     res.statusCode = 503;
     return res.end();
   }
   try {
-    const r = await registrarClique(store, {
+    const r = await registrarClique(process.env, {
       loja: String(b.loja || "").toLowerCase(),
       origem: String(b.origem || ""),
       id: b.id ? String(b.id).slice(0, 200) : "",

@@ -14,10 +14,11 @@ PUBLICAÇÃO AUTOMÁTICA
 Este repositório (GitHub vicentejrmarketing/espacodocelularlp) está ligado ao projeto espacodocelularloja na Vercel:
 cada atualização enviada ao GitHub publica o site sozinha.
 
-ATIVAR A CENTRAL (uma vez só, na Vercel, projeto espacodocelularloja)
-1) Storage > Create Database > Upstash for Redis (grátis) > conectar ao projeto.
-   (É onde os leads e os cliques ficam guardados. Sem isso a central não funciona.)
-2) Os acessos das lojas já estão cadastrados na variável CENTRAL_ACESSOS (sem senhas, só o resumo delas).
+ONDE A CENTRAL GUARDA OS DADOS
+- Supabase, projeto "espaco-do-celular-central" (região São Paulo). As tabelas ficam num schema privado;
+  o site só acessa por funções que exigem o segredo do servidor (variável CENTRAL_DB_SEGREDO da Vercel).
+- Variáveis já cadastradas na Vercel: CENTRAL_SUPABASE_URL, CENTRAL_SUPABASE_KEY, CENTRAL_DB_SEGREDO, CENTRAL_ACESSOS.
+- O SQL das tabelas e funções está em supabase/central.sql.
 
 ACESSOS
 - Itajaí ....... itajaiedc@gmail.com

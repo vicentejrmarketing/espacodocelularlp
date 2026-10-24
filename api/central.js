@@ -3,8 +3,7 @@
 //   GET  /api/central            Authorization: Bearer <token>       -> leads e cliques SÓ da loja do token
 // O token é assinado no servidor; a loja vem do token, nunca de um parâmetro que o navegador possa trocar.
 
-const { getStore } = require("./_store");
-const { entrar, verificar, dados, ipDe } = require("./_central");
+const { entrar, verificar, dados, ipDe, base } = require("./_central");
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -27,8 +26,7 @@ async function lerCorpo(req) {
 
 module.exports = async function (req, res) {
   const env = process.env;
-  const store = getStore(env);
-  if (!store) return json(res, 503, { ok: false, erro: "armazenamento_nao_configurado" });
+  if (!base(env)) return json(res, 503, { ok: false, erro: "armazenamento_nao_configurado" });
   try {
     if (req.method === "POST") {
       let b;
@@ -37,7 +35,7 @@ module.exports = async function (req, res) {
       } catch (e) {
         return json(res, 400, { ok: false, erro: "corpo_invalido" });
       }
-      const r = await entrar(store, env, { email: String(b.email || "").slice(0, 200), senha: String(b.senha || "").slice(0, 200), ip: ipDe(req) });
+      const r = await entrar(env, { email: String(b.email || "").slice(0, 200), senha: String(b.senha || "").slice(0, 200), ip: ipDe(req) });
       if (!r.ok) return json(res, r.status, { ok: false, erro: r.erro });
       return json(res, 200, { ok: true, token: r.token, acesso: r.acesso });
     }
@@ -45,7 +43,7 @@ module.exports = async function (req, res) {
       const auth = String(req.headers.authorization || "");
       const acesso = verificar(env, auth.startsWith("Bearer ") ? auth.slice(7) : "");
       if (!acesso) return json(res, 401, { ok: false, erro: "sessao_invalida" });
-      return json(res, 200, Object.assign({ ok: true }, await dados(store, acesso)));
+      return json(res, 200, Object.assign({ ok: true }, await dados(env, acesso)));
     }
     res.setHeader("Allow", "GET, POST");
     return json(res, 405, { ok: false, erro: "metodo" });
