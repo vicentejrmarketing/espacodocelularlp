@@ -65,6 +65,19 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
 .st-recusado{color:#ff8a8a;border-color:#5c2222;background-color:#2a1010}
 .st-comprou{color:#25D366;border-color:#145c2e;background-color:#0f2a18}
 .st:disabled{opacity:.6;cursor:wait}
+.st-det{display:block;font-size:12px;color:var(--sub);margin-top:6px;max-width:260px;line-height:1.4;text-align:left;background:none;border:0;padding:0;font-family:inherit;cursor:pointer}
+.st-det:hover{color:var(--txt);text-decoration:underline}
+.st-det b{color:var(--txt);font-weight:700}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal.aberto{display:flex}
+.modal form{width:100%;max-width:420px;background:var(--card);border:1px solid var(--linha);border-radius:16px;padding:22px}
+.modal h3{font-size:18px;font-weight:800;margin:0 0 4px}
+.modal .quem-lead{color:var(--sub);font-size:14px;margin:0 0 6px}
+.modal textarea{width:100%;font:inherit;font-size:16px;color:var(--txt);background:#000;border:1px solid #333;border-radius:10px;padding:12px;min-height:96px;resize:vertical}
+.modal textarea:focus{outline:2px solid var(--ama);outline-offset:1px}
+.modal .botoes{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.modal .msg{margin-top:10px}
+.modal .obrig{color:var(--ama)}
 .aviso{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#222;color:#fff;border:1px solid #444;border-radius:10px;padding:10px 16px;font-size:14px;z-index:9;display:none}
 .wa-link{white-space:nowrap}
 .rodape{color:#666;font-size:12px;margin-top:20px}
@@ -140,6 +153,27 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
     </table>
     <div class="vazio" id="vazio" style="display:none"></div>
     <div class="aviso" id="aviso" role="status"></div>
+    <div class="modal" id="mStatus" role="dialog" aria-modal="true" aria-labelledby="mTitulo">
+      <form id="fStatus" novalidate>
+        <h3 id="mTitulo"></h3>
+        <p class="quem-lead" id="mLead"></p>
+        <div id="mRecusa">
+          <label for="mMotivo">Por que recusou? <span class="obrig">*</span></label>
+          <textarea id="mMotivo" maxlength="500" placeholder="Ex.: não tinha o valor da entrada, preferiu outro modelo..."></textarea>
+        </div>
+        <div id="mCompra">
+          <label for="mProduto">O que comprou? <span class="obrig">*</span></label>
+          <input id="mProduto" maxlength="200" placeholder="Ex.: Redmi Note 15 256GB + capinha">
+          <label for="mValor">Valor (R$) <span class="obrig">*</span></label>
+          <input id="mValor" inputmode="decimal" placeholder="Ex.: 1.899,90">
+        </div>
+        <div class="msg" id="mMsg" role="alert"></div>
+        <div class="botoes">
+          <button class="btn sec" type="button" id="mCancelar">Cancelar</button>
+          <button class="btn" type="submit" id="mSalvar">Salvar</button>
+        </div>
+      </form>
+    </div>
     <div class="rodape">Os dados atualizam sozinhos a cada minuto. Contagem de cliques: um clique repetido do mesmo aparelho em menos de 3 segundos conta uma vez.</div>
   </div>
 </section>
@@ -207,9 +241,10 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
     // filtro por status (com a contagem de cada um no período)
     var fs=$('filtroStatus');fs.innerHTML='';
     [['todos','Todos']].concat(ST).forEach(function(s){
-      var n=s[0]==='todos'?ls.length:ls.filter(function(l){return (l.status||'novo')===s[0];}).length;
+      var grupo=s[0]==='todos'?ls:ls.filter(function(l){return (l.status||'novo')===s[0];}), n=grupo.length;
       var bt=el('button',null,{type:'button','aria-pressed':String(filtroSt===s[0])});
       bt.appendChild(document.createTextNode(s[1]+' '));bt.appendChild(el('b',fmtN(n)));
+      if(s[0]==='comprou'&&n){var tot=grupo.reduce(function(a,l){return a+(Number(l.compra_valor)||0);},0);bt.appendChild(document.createTextNode(' · '+fmtBRL(tot)));}
       bt.addEventListener('click',function(){filtroSt=s[0];render();});
       fs.appendChild(bt);
     });
@@ -234,7 +269,16 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
       var tdS=el('td',null,{'data-r':'Status'}), sel=el('select',null,{'class':'st st-'+(l.status||'novo'),'aria-label':'Status de '+l.nome});
       ST.forEach(function(s){var o=el('option',s[1],{value:s[0]});if((l.status||'novo')===s[0])o.selected=true;sel.appendChild(o);});
       sel.addEventListener('change',function(){mudarStatus(l,sel);});
-      tdS.appendChild(sel);tr.appendChild(tdS);
+      tdS.appendChild(sel);
+      if(l.status==='recusado'&&l.motivo_recusa){
+        var d1=el('button',null,{type:'button','class':'st-det',title:'Editar motivo'});d1.appendChild(el('b','Motivo: '));d1.appendChild(document.createTextNode(l.motivo_recusa));
+        d1.addEventListener('click',function(){abrirJanela(l,'recusado');});tdS.appendChild(d1);
+      }
+      if(l.status==='comprou'&&l.compra_produto){
+        var d2=el('button',null,{type:'button','class':'st-det',title:'Editar compra'});d2.appendChild(el('b',fmtBRL(l.compra_valor)+' · '));d2.appendChild(document.createTextNode(l.compra_produto));
+        d2.addEventListener('click',function(){abrirJanela(l,'comprou');});tdS.appendChild(d2);
+      }
+      tr.appendChild(tdS);
       var tdC=el('td',null,{'data-r':'Clicou no WhatsApp'});
       tdC.appendChild(l.clicou_whatsapp_em?el('span','Sim · '+dataHora(l.clicou_whatsapp_em).slice(-5),{'class':'tag'}):el('span','Não',{'class':'tag nao'}));
       tr.appendChild(tdC);
@@ -247,20 +291,78 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
     $('atualizado').textContent='Atualizado às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   }
 
+  function fmtBRL(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
+  function lerValor(s){s=String(s||'').replace(/[R$\s]/g,'');if(s.indexOf(',')>=0)s=s.replace(/\./g,'').replace(',','.');var n=Number(s);return isFinite(n)?Math.round(n*100)/100:NaN;}
   function aviso(t){var a=$('aviso');a.textContent=t;a.style.display='block';clearTimeout(aviso.t);aviso.t=setTimeout(function(){a.style.display='none';},2500);}
-  function mudarStatus(l,sel){
-    var antes=l.status||'novo', novo=sel.value;
-    sel.className='st st-'+novo;sel.disabled=true;
-    fetch('/api/central',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({id:l.id,status:novo})})
+  // Envia o status ao servidor. extra = {motivo} ou {produto, valor}
+  function salvarStatus(l,novo,extra){
+    return fetch('/api/central',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify(Object.assign({id:l.id,status:novo},extra||{}))})
       .then(function(r){if(r.status===401){sair('Sua sessão expirou. Entre novamente.');throw 0;}return r.json();})
       .then(function(j){
-        if(!j.ok)throw 1;
+        if(!j.ok)throw (j.erro||1);
         l.status=novo;l.status_em=new Date().toISOString();
+        delete l.motivo_recusa;delete l.compra_produto;delete l.compra_valor;
+        if(novo==='recusado')l.motivo_recusa=extra.motivo.trim();
+        if(novo==='comprou'){l.compra_produto=extra.produto.trim();l.compra_valor=extra.valor;}
         aviso(l.nome+': '+ST_NOME[novo]);render();
-      })
+      });
+  }
+  function mudarStatus(l,sel){
+    var antes=l.status||'novo', novo=sel.value;
+    if(novo==='recusado'||novo==='comprou'){
+      abrirJanela(l,novo,function(){sel.value=antes;sel.className='st st-'+antes;});
+      return;
+    }
+    sel.className='st st-'+novo;sel.disabled=true;
+    salvarStatus(l,novo,{})
       .catch(function(e){if(e===0)return;sel.value=antes;sel.className='st st-'+antes;aviso('Não foi possível salvar o status. Tente de novo.');})
       .then(function(){sel.disabled=false;});
   }
+
+  // Janela obrigatória: motivo da recusa / o que comprou + valor
+  var J={lead:null,status:null,cancelar:null};
+  function abrirJanela(l,novo,aoCancelar){
+    J.lead=l;J.status=novo;J.cancelar=aoCancelar||null;
+    var rec=novo==='recusado';
+    $('mTitulo').textContent=rec?'Marcar como Recusado':'Marcar como Comprou';
+    $('mLead').textContent=l.nome+' · '+fmtTel(l.telefone);
+    $('mRecusa').style.display=rec?'':'none';$('mCompra').style.display=rec?'none':'';
+    $('mMotivo').value=rec&&l.status==='recusado'?(l.motivo_recusa||''):'';
+    $('mProduto').value=!rec&&l.status==='comprou'?(l.compra_produto||''):'';
+    $('mValor').value=!rec&&l.status==='comprou'&&l.compra_valor?Number(l.compra_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'';
+    $('mMsg').textContent='';
+    $('mStatus').classList.add('aberto');
+    setTimeout(function(){(rec?$('mMotivo'):$('mProduto')).focus();},30);
+  }
+  function fecharJanela(cancelado){
+    $('mStatus').classList.remove('aberto');
+    if(cancelado&&J.cancelar)J.cancelar();
+    J.lead=null;J.cancelar=null;
+  }
+  $('mCancelar').addEventListener('click',function(){fecharJanela(true);});
+  $('mStatus').addEventListener('click',function(e){if(e.target===$('mStatus'))fecharJanela(true);});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&$('mStatus').classList.contains('aberto'))fecharJanela(true);});
+  $('mValor').addEventListener('blur',function(){var v=lerValor(this.value);if(v>0)this.value=v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});});
+  $('fStatus').addEventListener('submit',function(e){
+    e.preventDefault();
+    var m=$('mMsg'),extra;
+    if(J.status==='recusado'){
+      var mot=$('mMotivo').value.trim();
+      if(mot.length<3){m.textContent='Escreva o motivo da recusa.';$('mMotivo').focus();return;}
+      extra={motivo:mot};
+    } else {
+      var prod=$('mProduto').value.trim(), val=lerValor($('mValor').value);
+      if(prod.length<2){m.textContent='Escreva o que o cliente comprou.';$('mProduto').focus();return;}
+      if(!(val>0)){m.textContent='Informe o valor da compra.';$('mValor').focus();return;}
+      if(val>1000000){m.textContent='Valor muito alto. Confira o número.';$('mValor').focus();return;}
+      extra={produto:prod,valor:val};
+    }
+    var b=$('mSalvar');b.disabled=true;m.textContent='';
+    salvarStatus(J.lead,J.status,extra)
+      .then(function(){fecharJanela(false);})
+      .catch(function(err){if(err===0){fecharJanela(false);return;}m.textContent='Não foi possível salvar. Tente de novo.';})
+      .then(function(){b.disabled=false;});
+  });
 
   function mostrarPainel(sim){
     $('login').style.display=sim?'none':'';
@@ -279,7 +381,7 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
         if(x.s===401){sair('Sua sessão expirou. Entre novamente.');return;}
         if(!x.j.ok){$('atualizado').textContent='Não foi possível atualizar agora. Tentando de novo em 1 minuto.';return;}
         D=x.j;mostrarPainel(true);
-        var foco=document.activeElement;if(foco&&foco.classList&&foco.classList.contains('st'))return;
+        var foco=document.activeElement;if((foco&&foco.classList&&foco.classList.contains('st'))||$('mStatus').classList.contains('aberto'))return;
         render();
       })
       .catch(function(){$('atualizado').textContent='Sem conexão. Tentando de novo em 1 minuto.';})
@@ -313,9 +415,9 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
   $('bCsv').addEventListener('click',function(){
     if(!D)return;
     var geral=D.acesso==='geral', ls=leadsDoPeriodo();
-    var cab=['Data','Nome','Telefone','CPF'].concat(geral?['Loja']:[]).concat(['Status','Clicou no WhatsApp','utm_source','utm_medium','utm_campaign','utm_content','utm_term']);
+    var cab=['Data','Nome','Telefone','CPF'].concat(geral?['Loja']:[]).concat(['Status','Motivo da recusa','Produto comprado','Valor da compra','Clicou no WhatsApp','utm_source','utm_medium','utm_campaign','utm_content','utm_term']);
     var linhas=[cab].concat(ls.map(function(l){
-      return [dataHora(l.criado_em),l.nome,fmtTel(l.telefone),fmtCpf(l.cpf)].concat(geral?[NOMES[l.loja]||l.loja]:[]).concat([ST_NOME[l.status||'novo'],l.clicou_whatsapp_em?'Sim':'Não',l.utm_source||'',l.utm_medium||'',l.utm_campaign||'',l.utm_content||'',l.utm_term||'']);
+      return [dataHora(l.criado_em),l.nome,fmtTel(l.telefone),fmtCpf(l.cpf)].concat(geral?[NOMES[l.loja]||l.loja]:[]).concat([ST_NOME[l.status||'novo'],l.motivo_recusa||'',l.compra_produto||'',l.compra_valor?Number(l.compra_valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'',l.clicou_whatsapp_em?'Sim':'Não',l.utm_source||'',l.utm_medium||'',l.utm_campaign||'',l.utm_content||'',l.utm_term||'']);
     }));
     var csv='﻿'+linhas.map(function(r){return r.map(function(v){v=String(v==null?'':v);if(/^[=+\-@]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"';}).join(';');}).join('\r\n');
     var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));

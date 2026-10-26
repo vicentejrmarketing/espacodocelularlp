@@ -2,6 +2,7 @@
 //   POST /api/central            {"email":"...","senha":"..."}      -> {ok, token, acesso}
 //   GET  /api/central            Authorization: Bearer <token>       -> leads e cliques SÓ da loja do token
 //   PATCH /api/central           Authorization: Bearer <token>  {"id":"...","status":"em_atendimento"} -> muda o status
+//                                recusado: + "motivo"   |   comprou: + "produto" e "valor" (número em reais)
 // O token é assinado no servidor; a loja vem do token, nunca de um parâmetro que o navegador possa trocar.
 
 const { entrar, verificar, dados, atualizarStatus, ipDe, base } = require("./_central");
@@ -56,8 +57,8 @@ module.exports = async function (req, res) {
       } catch (e) {
         return json(res, 400, { ok: false, erro: "corpo_invalido" });
       }
-      const r = await atualizarStatus(env, acesso, String(b.id || "").slice(0, 200), String(b.status || ""));
-      return json(res, r.ok ? 200 : r.erro === "invalido" ? 422 : 404, r);
+      const r = await atualizarStatus(env, acesso, String(b.id || "").slice(0, 200), String(b.status || ""), { motivo: b.motivo, produto: b.produto, valor: b.valor });
+      return json(res, r.ok ? 200 : r.erro === "lead_nao_encontrado" ? 404 : 422, r);
     }
     res.setHeader("Allow", "GET, POST, PATCH");
     return json(res, 405, { ok: false, erro: "metodo" });

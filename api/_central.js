@@ -66,7 +66,8 @@ function baseSupabase(env) {
     clique: (loja, origem, dedupe, leadId) => rpc("central_clique", { p_loja: loja, p_origem: origem, p_dedupe: dedupe, p_lead_id: leadId || "" }),
     tentativas: (chave, acao) => rpc("central_tentativas", { p_chave: chave, p_acao: acao }).then(Number),
     dados: (lojas, dias) => rpc("central_dados", { p_lojas: lojas, p_dias: dias }),
-    status: (id, lojas, status, por) => rpc("central_status", { p_id: id, p_lojas: lojas, p_status: status, p_por: por }).then(Boolean),
+    status: (id, lojas, status, por, det) =>
+      rpc("central_status", { p_id: id, p_lojas: lojas, p_status: status, p_por: por, p_motivo: det.motivo_recusa || null, p_produto: det.compra_produto || null, p_valor: det.compra_valor == null ? null : det.compra_valor }).then(Boolean),
   };
 }
 
@@ -92,10 +93,11 @@ function baseKV(store) {
       }
       return "ok";
     },
-    async status(id, lojas, status, por) {
+    async status(id, lojas, status, por, det) {
       const lead = await store.get(P + "lead:" + id);
       if (!lead || !lojas.includes(lead.loja)) return false;
-      Object.assign(lead, { status, status_em: new Date().toISOString(), status_por: por });
+      delete lead.motivo_recusa; delete lead.compra_produto; delete lead.compra_valor;
+      Object.assign(lead, { status, status_em: new Date().toISOString(), status_por: por }, det);
       await store.set(P + "lead:" + id, lead);
       return true;
     },
@@ -301,11 +303,28 @@ async function dados(env, acesso, agora) {
 }
 
 // Muda o status de um lead. A loja vem do login: uma loja nunca altera lead de outra.
-async function atualizarStatus(env, acesso, id, status) {
+// Recusado exige o motivo; Comprou exige o que comprou e o valor.
+function texto(v, max) {
+  return String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+}
+async function atualizarStatus(env, acesso, id, status, extra) {
   const b = base(env);
   if (!b) throw new Error("armazenamento_nao_configurado");
   if (!STATUS.includes(status) || !/^pag-agendamento:[a-z0-9-]+:[0-9a-f-]{36}$/.test(String(id || ""))) return { ok: false, erro: "invalido" };
-  const ok = await b.status(id, lojasDoAcesso(acesso), status, acesso);
+  extra = extra || {};
+  const det = {};
+  if (status === "recusado") {
+    det.motivo_recusa = texto(extra.motivo, 500);
+    if (det.motivo_recusa.length < 3) return { ok: false, erro: "motivo_obrigatorio" };
+  }
+  if (status === "comprou") {
+    det.compra_produto = texto(extra.produto, 200);
+    const v = Math.round(Number(extra.valor) * 100) / 100;
+    if (det.compra_produto.length < 2) return { ok: false, erro: "produto_obrigatorio" };
+    if (!isFinite(v) || v <= 0 || v > 1000000) return { ok: false, erro: "valor_obrigatorio" };
+    det.compra_valor = v;
+  }
+  const ok = await b.status(id, lojasDoAcesso(acesso), status, acesso, det);
   return ok ? { ok: true } : { ok: false, erro: "lead_nao_encontrado" };
 }
 

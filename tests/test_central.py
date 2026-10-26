@@ -57,9 +57,17 @@ try:
     def patch(t, body): return req("PATCH", "/api/central", body, {"content-type": "application/json", "authorization": "Bearer " + t})
     ok("T1 lead novo chega com status 'novo'", all(l["status"] == "novo" for l in D["geral"]["leads"]), [l["status"] for l in D["geral"]["leads"]])
     ok("T2 loja muda o status do próprio lead", patch(T["itajai"], {"id": ids["itajai"], "status": "em_atendimento"})[0] == 200 and painel(T["itajai"])[1]["leads"][0]["status"] == "em_atendimento")
-    ok("T3 loja NÃO muda lead de outra loja", patch(T["itajai"], {"id": ids["navegantes"], "status": "comprou"})[0] == 404 and painel(T["navegantes"])[1]["leads"][0]["status"] == "novo")
+    ok("T3 loja NÃO muda lead de outra loja", patch(T["itajai"], {"id": ids["navegantes"], "status": "comprou", "produto": "Redmi", "valor": 10})[0] == 404 and painel(T["navegantes"])[1]["leads"][0]["status"] == "novo")
     ok("T4 status inválido e sem login são recusados", patch(T["itajai"], {"id": ids["itajai"], "status": "aprovado"})[0] == 422 and req("PATCH", "/api/central", {"id": ids["itajai"], "status": "comprou"})[0] == 401)
-    ok("T5 gerente muda status de qualquer loja", patch(T["geral"], {"id": ids["camboriu"], "status": "recusado"})[0] == 200 and painel(T["camboriu"])[1]["leads"][0]["status"] == "recusado")
+    ok("T5 gerente muda status de qualquer loja", patch(T["geral"], {"id": ids["camboriu"], "status": "recusado", "motivo": "Sem entrada"})[0] == 200 and painel(T["camboriu"])[1]["leads"][0]["status"] == "recusado")
+    ok("T6 Recusado sem motivo é recusado pelo servidor", patch(T["itajai"], {"id": ids["itajai"], "status": "recusado", "motivo": "  "})[1].get("erro") == "motivo_obrigatorio")
+    ok("T7 Comprou sem produto ou sem valor é recusado", patch(T["itajai"], {"id": ids["itajai"], "status": "comprou", "valor": 100})[1].get("erro") == "produto_obrigatorio" and patch(T["itajai"], {"id": ids["itajai"], "status": "comprou", "produto": "Redmi", "valor": 0})[1].get("erro") == "valor_obrigatorio")
+    s7 = patch(T["itajai"], {"id": ids["itajai"], "status": "comprou", "produto": "Redmi Note 15 256GB", "valor": 1899.9})[0]
+    L = painel(T["itajai"])[1]["leads"][0]
+    ok("T8 Comprou com produto e valor fica salvo", s7 == 200 and L["compra_produto"] == "Redmi Note 15 256GB" and float(L["compra_valor"]) == 1899.9, L)
+    patch(T["itajai"], {"id": ids["itajai"], "status": "em_atendimento"})
+    L = painel(T["itajai"])[1]["leads"][0]
+    ok("T9 ao sair de Comprou/Recusado os detalhes antigos somem", L["status"] == "em_atendimento" and "compra_produto" not in L and "compra_valor" not in L, L)
     ok("L9 clique de loja inválida é recusado", req("POST", "/api/clique", {"loja": "xpto", "origem": "site"}, {"content-type": "text/plain"})[0] == 422)
 
     with sync_playwright() as p:
@@ -75,10 +83,26 @@ try:
             pg.goto(B + "/central.html"); pg.fill("#email", CRED["camboriu"][0]); pg.fill("#senha", CRED["camboriu"][1]); pg.click("#bEntrar"); pg.wait_for_timeout(1200)
             ok(f"P2 [{w}px] clique no site conta para a loja e aparece na central", pg.locator("#painel").is_visible() and pg.inner_text("#cSite") == ("1" if w == 1280 else "2"), pg.inner_text("#cSite"))
             # status pela tela: muda, aparece no filtro e continua depois de recarregar
-            alvo = "comprou" if w == 1280 else "em_atendimento"
-            pg.locator("#tLeads select.st").first.select_option(alvo); pg.wait_for_timeout(1200)
+            sel = pg.locator("#tLeads select.st").first
+            inicial = sel.input_value()
+            if w == 1280:
+                # cancelar a janela volta o status; salvar sem preencher mostra aviso; preenchido salva
+                sel.select_option("em_atendimento"); pg.wait_for_timeout(1000); inicial = "em_atendimento"
+                sel.select_option("recusado"); pg.wait_for_timeout(300)
+                ok(f"P6 [{w}px] Recusado abre a janela com o motivo", pg.locator("#mStatus.aberto #mMotivo").is_visible())
+                pg.click("#mCancelar"); pg.wait_for_timeout(300)
+                ok(f"P7 [{w}px] cancelar a janela volta o status anterior", sel.input_value() == inicial, sel.input_value())
+                sel.select_option("comprou"); pg.wait_for_timeout(300); pg.click("#mSalvar"); pg.wait_for_timeout(300)
+                ok(f"P8 [{w}px] Comprou não salva sem preencher", pg.locator("#mStatus.aberto").count() == 1 and "comprou" in pg.inner_text("#mMsg").lower())
+                pg.fill("#mProduto", "Redmi Note 15 256GB"); pg.fill("#mValor", "1.899,90"); pg.click("#mSalvar"); pg.wait_for_timeout(1200)
+                alvo = "comprou"
+            else:
+                sel.select_option("em_atendimento"); pg.wait_for_timeout(1200); alvo = "em_atendimento"
             pg.reload(); pg.wait_for_timeout(1500)
             ok(f"P4 [{w}px] status escolhido na lista fica salvo", pg.locator("#tLeads select.st").first.input_value() == alvo, pg.locator("#tLeads select.st").first.input_value())
+            if w == 1280:
+                tl, tf = pg.inner_text("#tLeads").replace("\xa0", " "), pg.inner_text("#filtroStatus").replace("\xa0", " ")
+                ok(f"P9 [{w}px] produto e valor aparecem no lead e no filtro", "R$ 1.899,90" in tl and "Redmi Note 15" in tl and "R$ 1.899,90" in tf, tf)
             pg.locator("#filtroStatus button", has_text="Novo").click(); pg.wait_for_timeout(300)
             ok(f"P5 [{w}px] filtro por status esconde o lead que mudou", pg.locator("#tLeads tbody tr").count() == 0 and "Nenhum lead" in pg.inner_text("#vazio"))
             ok(f"P3 [{w}px] sem erros de JavaScript", not erros, erros)
