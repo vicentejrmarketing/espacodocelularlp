@@ -138,7 +138,7 @@ Object.assign(process.env, {
 if (process.env.SIM_SUPA_PG) {
   const { Pool } = require(process.env.SIM_PG_MODULE || "pg");
   const pool = new Pool({ connectionString: process.env.SIM_SUPA_PG, max: 4 });
-  const ARGS = { central_salvar_lead: ["p_segredo", "p_lead"], central_clique: ["p_segredo", "p_loja", "p_origem", "p_dedupe", "p_lead_id"], central_tentativas: ["p_segredo", "p_chave", "p_acao"], central_dados: ["p_segredo", "p_lojas", "p_dias"] };
+  const ARGS = { central_salvar_lead: ["p_segredo", "p_lead"], central_clique: ["p_segredo", "p_loja", "p_origem", "p_dedupe", "p_lead_id"], central_tentativas: ["p_segredo", "p_chave", "p_acao"], central_dados: ["p_segredo", "p_lojas", "p_dias"], central_status: ["p_segredo", "p_id", "p_lojas", "p_status", "p_por"] };
   http.createServer((req, res) => {
     let b = ""; req.on("data", (c) => (b += c)); req.on("end", async () => {
       const m = /^\/rest\/v1\/rpc\/(\w+)$/.exec(req.url);

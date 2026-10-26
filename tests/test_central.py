@@ -54,6 +54,12 @@ try:
     if MODO == "supabase":
         dump = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{PORTA + 2}/__dump").read())
         ok("S0 no modo Supabase nada da central vai para o KV", not any(k.endswith("_central") for k in dump["comandos"]), dump["comandos"])
+    def patch(t, body): return req("PATCH", "/api/central", body, {"content-type": "application/json", "authorization": "Bearer " + t})
+    ok("T1 lead novo chega com status 'novo'", all(l["status"] == "novo" for l in D["geral"]["leads"]), [l["status"] for l in D["geral"]["leads"]])
+    ok("T2 loja muda o status do próprio lead", patch(T["itajai"], {"id": ids["itajai"], "status": "em_atendimento"})[0] == 200 and painel(T["itajai"])[1]["leads"][0]["status"] == "em_atendimento")
+    ok("T3 loja NÃO muda lead de outra loja", patch(T["itajai"], {"id": ids["navegantes"], "status": "comprou"})[0] == 404 and painel(T["navegantes"])[1]["leads"][0]["status"] == "novo")
+    ok("T4 status inválido e sem login são recusados", patch(T["itajai"], {"id": ids["itajai"], "status": "aprovado"})[0] == 422 and req("PATCH", "/api/central", {"id": ids["itajai"], "status": "comprou"})[0] == 401)
+    ok("T5 gerente muda status de qualquer loja", patch(T["geral"], {"id": ids["camboriu"], "status": "recusado"})[0] == 200 and painel(T["camboriu"])[1]["leads"][0]["status"] == "recusado")
     ok("L9 clique de loja inválida é recusado", req("POST", "/api/clique", {"loja": "xpto", "origem": "site"}, {"content-type": "text/plain"})[0] == 422)
 
     with sync_playwright() as p:
@@ -68,6 +74,13 @@ try:
             ok(f"P1 [{w}px] botão Área da loja no rodapé", pg.locator(".edc-central-acesso a[href='central.html']").count() == 1 and pg.locator(".edc-central-acesso a").is_visible())
             pg.goto(B + "/central.html"); pg.fill("#email", CRED["camboriu"][0]); pg.fill("#senha", CRED["camboriu"][1]); pg.click("#bEntrar"); pg.wait_for_timeout(1200)
             ok(f"P2 [{w}px] clique no site conta para a loja e aparece na central", pg.locator("#painel").is_visible() and pg.inner_text("#cSite") == ("1" if w == 1280 else "2"), pg.inner_text("#cSite"))
+            # status pela tela: muda, aparece no filtro e continua depois de recarregar
+            alvo = "comprou" if w == 1280 else "em_atendimento"
+            pg.locator("#tLeads select.st").first.select_option(alvo); pg.wait_for_timeout(1200)
+            pg.reload(); pg.wait_for_timeout(1500)
+            ok(f"P4 [{w}px] status escolhido na lista fica salvo", pg.locator("#tLeads select.st").first.input_value() == alvo, pg.locator("#tLeads select.st").first.input_value())
+            pg.locator("#filtroStatus button", has_text="Novo").click(); pg.wait_for_timeout(300)
+            ok(f"P5 [{w}px] filtro por status esconde o lead que mudou", pg.locator("#tLeads tbody tr").count() == 0 and "Nenhum lead" in pg.inner_text("#vazio"))
             ok(f"P3 [{w}px] sem erros de JavaScript", not erros, erros)
             c.close()
         b.close()

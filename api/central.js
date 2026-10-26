@@ -1,9 +1,10 @@
 // API da central de leads.
 //   POST /api/central            {"email":"...","senha":"..."}      -> {ok, token, acesso}
 //   GET  /api/central            Authorization: Bearer <token>       -> leads e cliques SÓ da loja do token
+//   PATCH /api/central           Authorization: Bearer <token>  {"id":"...","status":"em_atendimento"} -> muda o status
 // O token é assinado no servidor; a loja vem do token, nunca de um parâmetro que o navegador possa trocar.
 
-const { entrar, verificar, dados, ipDe, base } = require("./_central");
+const { entrar, verificar, dados, atualizarStatus, ipDe, base } = require("./_central");
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -45,7 +46,20 @@ module.exports = async function (req, res) {
       if (!acesso) return json(res, 401, { ok: false, erro: "sessao_invalida" });
       return json(res, 200, Object.assign({ ok: true }, await dados(env, acesso)));
     }
-    res.setHeader("Allow", "GET, POST");
+    if (req.method === "PATCH") {
+      const auth = String(req.headers.authorization || "");
+      const acesso = verificar(env, auth.startsWith("Bearer ") ? auth.slice(7) : "");
+      if (!acesso) return json(res, 401, { ok: false, erro: "sessao_invalida" });
+      let b;
+      try {
+        b = await lerCorpo(req);
+      } catch (e) {
+        return json(res, 400, { ok: false, erro: "corpo_invalido" });
+      }
+      const r = await atualizarStatus(env, acesso, String(b.id || "").slice(0, 200), String(b.status || ""));
+      return json(res, r.ok ? 200 : r.erro === "invalido" ? 422 : 404, r);
+    }
+    res.setHeader("Allow", "GET, POST, PATCH");
     return json(res, 405, { ok: false, erro: "metodo" });
   } catch (e) {
     console.error(JSON.stringify({ evento: "central", estado: "armazenamento_indisponivel", nivel: "alerta" }));

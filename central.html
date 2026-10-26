@@ -54,6 +54,18 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
 .tag{display:inline-block;font-size:12px;font-weight:700;padding:3px 8px;border-radius:99px;background:#0f2a18;color:var(--verde);white-space:nowrap}
 .tag.nao{background:#222;color:#888}
 .vazio{color:var(--sub);text-align:center;padding:30px 10px}
+.filtro-status{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.filtro-status button{font:inherit;font-size:13px;font-weight:700;color:var(--sub);background:transparent;border:1px solid #333;border-radius:99px;padding:7px 12px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.filtro-status button b{color:var(--txt);font-variant-numeric:tabular-nums}
+.filtro-status button[aria-pressed=true]{border-color:var(--ama);color:var(--ama)}
+.st{font:inherit;font-size:13px;font-weight:700;border-radius:99px;padding:6px 28px 6px 12px;width:auto;cursor:pointer;-webkit-appearance:none;appearance:none;border:1px solid;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;background-size:5px 5px;background-repeat:no-repeat}
+.st option{background:#111;color:#fff}
+.st-novo{color:#FFC700;border-color:#5c4a00;background-color:#2a2200}
+.st-em_atendimento{color:#6cb6ff;border-color:#1d3d5c;background-color:#0e1d2c}
+.st-recusado{color:#ff8a8a;border-color:#5c2222;background-color:#2a1010}
+.st-comprou{color:#25D366;border-color:#145c2e;background-color:#0f2a18}
+.st:disabled{opacity:.6;cursor:wait}
+.aviso{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#222;color:#fff;border:1px solid #444;border-radius:10px;padding:10px 16px;font-size:14px;z-index:9;display:none}
 .wa-link{white-space:nowrap}
 .rodape{color:#666;font-size:12px;margin-top:20px}
 @media (max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}}
@@ -121,18 +133,22 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
       <input id="busca" type="search" placeholder="Buscar por nome, telefone ou CPF">
       <button class="btn sec" type="button" id="bCsv">Baixar planilha</button>
     </div>
+    <div class="filtro-status" id="filtroStatus" role="group" aria-label="Filtrar por status"></div>
     <table class="tabela leads" id="tLeads">
-      <thead><tr><th>Data</th><th>Nome</th><th>Telefone</th><th>CPF</th><th class="colLoja">Loja</th><th>Clicou no WhatsApp</th><th>Origem</th></tr></thead>
+      <thead><tr><th>Data</th><th>Nome</th><th>Telefone</th><th>CPF</th><th class="colLoja">Loja</th><th>Status</th><th>Clicou no WhatsApp</th><th>Origem</th></tr></thead>
       <tbody></tbody>
     </table>
     <div class="vazio" id="vazio" style="display:none"></div>
+    <div class="aviso" id="aviso" role="status"></div>
     <div class="rodape">Os dados atualizam sozinhos a cada minuto. Contagem de cliques: um clique repetido do mesmo aparelho em menos de 3 segundos conta uma vez.</div>
   </div>
 </section>
 
 <script>
 (function(){
-  var CH='edc_central_sessao', token=null, D=null, periodo='tudo', timer=null;
+  var CH='edc_central_sessao', token=null, D=null, periodo='tudo', timer=null, filtroSt='todos';
+  var ST=[['novo','Novo'],['em_atendimento','Em atendimento'],['recusado','Recusado'],['comprou','Comprou']];
+  var ST_NOME={};ST.forEach(function(s){ST_NOME[s[0]]=s[1];});
   var NOMES={itajai:'Itajaí',navegantes:'Navegantes',camboriu:'Camboriú',colombo:'Colombo',geral:'Gerente'};
   function $(id){return document.getElementById(id);}
   function guardar(t){try{if(t)sessionStorage.setItem(CH,t);else sessionStorage.removeItem(CH);}catch(e){}}
@@ -188,9 +204,20 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
       });
     }
 
+    // filtro por status (com a contagem de cada um no período)
+    var fs=$('filtroStatus');fs.innerHTML='';
+    [['todos','Todos']].concat(ST).forEach(function(s){
+      var n=s[0]==='todos'?ls.length:ls.filter(function(l){return (l.status||'novo')===s[0];}).length;
+      var bt=el('button',null,{type:'button','aria-pressed':String(filtroSt===s[0])});
+      bt.appendChild(document.createTextNode(s[1]+' '));bt.appendChild(el('b',fmtN(n)));
+      bt.addEventListener('click',function(){filtroSt=s[0];render();});
+      fs.appendChild(bt);
+    });
+
     // tabela de leads
     var q=$('busca').value.trim().toLowerCase(), qd=q.replace(/\D/g,'');
     var lista=ls.filter(function(l){
+      if(filtroSt!=='todos'&&(l.status||'novo')!==filtroSt)return false;
       if(!q)return true;
       return (l.nome||'').toLowerCase().indexOf(q)>=0 || (qd && ((l.telefone||'').replace(/\D/g,'').indexOf(qd)>=0 || (l.cpf||'').indexOf(qd)>=0));
     });
@@ -204,6 +231,10 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
       tdT.appendChild(a);tr.appendChild(tdT);
       tr.appendChild(el('td',fmtCpf(l.cpf),{'data-r':'CPF'}));
       if(geral)tr.appendChild(el('td',NOMES[l.loja]||l.loja,{'data-r':'Loja'}));
+      var tdS=el('td',null,{'data-r':'Status'}), sel=el('select',null,{'class':'st st-'+(l.status||'novo'),'aria-label':'Status de '+l.nome});
+      ST.forEach(function(s){var o=el('option',s[1],{value:s[0]});if((l.status||'novo')===s[0])o.selected=true;sel.appendChild(o);});
+      sel.addEventListener('change',function(){mudarStatus(l,sel);});
+      tdS.appendChild(sel);tr.appendChild(tdS);
       var tdC=el('td',null,{'data-r':'Clicou no WhatsApp'});
       tdC.appendChild(l.clicou_whatsapp_em?el('span','Sim · '+dataHora(l.clicou_whatsapp_em).slice(-5),{'class':'tag'}):el('span','Não',{'class':'tag nao'}));
       tr.appendChild(tdC);
@@ -214,6 +245,21 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
     vz.style.display=lista.length?'none':'';
     vz.textContent=D.leads.length?'Nenhum lead encontrado para este filtro.':'Ainda não há leads. Assim que alguém preencher o formulário, ele aparece aqui.';
     $('atualizado').textContent='Atualizado às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  function aviso(t){var a=$('aviso');a.textContent=t;a.style.display='block';clearTimeout(aviso.t);aviso.t=setTimeout(function(){a.style.display='none';},2500);}
+  function mudarStatus(l,sel){
+    var antes=l.status||'novo', novo=sel.value;
+    sel.className='st st-'+novo;sel.disabled=true;
+    fetch('/api/central',{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({id:l.id,status:novo})})
+      .then(function(r){if(r.status===401){sair('Sua sessão expirou. Entre novamente.');throw 0;}return r.json();})
+      .then(function(j){
+        if(!j.ok)throw 1;
+        l.status=novo;l.status_em=new Date().toISOString();
+        aviso(l.nome+': '+ST_NOME[novo]);render();
+      })
+      .catch(function(e){if(e===0)return;sel.value=antes;sel.className='st st-'+antes;aviso('Não foi possível salvar o status. Tente de novo.');})
+      .then(function(){sel.disabled=false;});
   }
 
   function mostrarPainel(sim){
@@ -232,7 +278,9 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
       .then(function(x){
         if(x.s===401){sair('Sua sessão expirou. Entre novamente.');return;}
         if(!x.j.ok){$('atualizado').textContent='Não foi possível atualizar agora. Tentando de novo em 1 minuto.';return;}
-        D=x.j;mostrarPainel(true);render();
+        D=x.j;mostrarPainel(true);
+        var foco=document.activeElement;if(foco&&foco.classList&&foco.classList.contains('st'))return;
+        render();
       })
       .catch(function(){$('atualizado').textContent='Sem conexão. Tentando de novo em 1 minuto.';})
       .then(function(){b.disabled=false;});
@@ -265,9 +313,9 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
   $('bCsv').addEventListener('click',function(){
     if(!D)return;
     var geral=D.acesso==='geral', ls=leadsDoPeriodo();
-    var cab=['Data','Nome','Telefone','CPF'].concat(geral?['Loja']:[]).concat(['Clicou no WhatsApp','utm_source','utm_medium','utm_campaign','utm_content','utm_term']);
+    var cab=['Data','Nome','Telefone','CPF'].concat(geral?['Loja']:[]).concat(['Status','Clicou no WhatsApp','utm_source','utm_medium','utm_campaign','utm_content','utm_term']);
     var linhas=[cab].concat(ls.map(function(l){
-      return [dataHora(l.criado_em),l.nome,fmtTel(l.telefone),fmtCpf(l.cpf)].concat(geral?[NOMES[l.loja]||l.loja]:[]).concat([l.clicou_whatsapp_em?'Sim':'Não',l.utm_source||'',l.utm_medium||'',l.utm_campaign||'',l.utm_content||'',l.utm_term||'']);
+      return [dataHora(l.criado_em),l.nome,fmtTel(l.telefone),fmtCpf(l.cpf)].concat(geral?[NOMES[l.loja]||l.loja]:[]).concat([ST_NOME[l.status||'novo'],l.clicou_whatsapp_em?'Sim':'Não',l.utm_source||'',l.utm_medium||'',l.utm_campaign||'',l.utm_content||'',l.utm_term||'']);
     }));
     var csv='﻿'+linhas.map(function(r){return r.map(function(v){v=String(v==null?'':v);if(/^[=+\-@]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"';}).join(';');}).join('\r\n');
     var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));

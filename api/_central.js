@@ -16,6 +16,7 @@ const { getStore } = require("./_store");
 
 const P = "edc:central:";
 const ORIGENS = ["site", "pre-analise"];
+const STATUS = ["novo", "em_atendimento", "recusado", "comprou"];
 const ACESSOS = { itajai: "CENTRAL_SENHA_ITAJAI", navegantes: "CENTRAL_SENHA_NAVEGANTES", camboriu: "CENTRAL_SENHA_CAMBORIU", geral: "CENTRAL_SENHA_GERAL" };
 const SESSAO_MS = 12 * 3600 * 1000;
 const MAX_LEADS = 2000;
@@ -65,6 +66,7 @@ function baseSupabase(env) {
     clique: (loja, origem, dedupe, leadId) => rpc("central_clique", { p_loja: loja, p_origem: origem, p_dedupe: dedupe, p_lead_id: leadId || "" }),
     tentativas: (chave, acao) => rpc("central_tentativas", { p_chave: chave, p_acao: acao }).then(Number),
     dados: (lojas, dias) => rpc("central_dados", { p_lojas: lojas, p_dias: dias }),
+    status: (id, lojas, status, por) => rpc("central_status", { p_id: id, p_lojas: lojas, p_status: status, p_por: por }).then(Boolean),
   };
 }
 
@@ -89,6 +91,13 @@ function baseKV(store) {
         }
       }
       return "ok";
+    },
+    async status(id, lojas, status, por) {
+      const lead = await store.get(P + "lead:" + id);
+      if (!lead || !lojas.includes(lead.loja)) return false;
+      Object.assign(lead, { status, status_em: new Date().toISOString(), status_por: por });
+      await store.set(P + "lead:" + id, lead);
+      return true;
     },
     async tentativas(chave, acao) {
       const k = P + "tentativas:" + chave;
@@ -285,9 +294,19 @@ async function dados(env, acesso, agora) {
   // Defesa extra: nunca devolve lead de outra loja
   const leads = (r.leads || [])
     .filter((x) => x && lojas.includes(x.loja))
+    .map((x) => Object.assign({}, x, { status: STATUS.includes(x.status) ? x.status : "novo" }))
     .sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1))
     .slice(0, MAX_LEADS);
   return { acesso, lojas: lojas.map((l) => ({ codigo: l, nome: LOJAS[l].nome })), hoje: diaSP(agora), cliques, leads };
+}
+
+// Muda o status de um lead. A loja vem do login: uma loja nunca altera lead de outra.
+async function atualizarStatus(env, acesso, id, status) {
+  const b = base(env);
+  if (!b) throw new Error("armazenamento_nao_configurado");
+  if (!STATUS.includes(status) || !/^pag-agendamento:[a-z0-9-]+:[0-9a-f-]{36}$/.test(String(id || ""))) return { ok: false, erro: "invalido" };
+  const ok = await b.status(id, lojasDoAcesso(acesso), status, acesso);
+  return ok ? { ok: true } : { ok: false, erro: "lead_nao_encontrado" };
 }
 
 function hashParaObj(v) {
@@ -297,4 +316,4 @@ function hashParaObj(v) {
   return o;
 }
 
-module.exports = { salvarLead, registrarClique, entrar, verificar, dados, ipDe, base, ACESSOS, ORIGENS, diaSP };
+module.exports = { salvarLead, registrarClique, entrar, verificar, dados, atualizarStatus, ipDe, base, ACESSOS, ORIGENS, STATUS, diaSP };
