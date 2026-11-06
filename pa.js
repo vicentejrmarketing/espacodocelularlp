@@ -114,9 +114,7 @@
       box.querySelector('.pa-cal-msg').setAttribute('data-sem-agenda',l.nome);
     } else {
       /* Mensagem pronta para o vendedor: nome, telefone e loja. CPF NÃO vai no link do WhatsApp. */
-      var texto='Olá! Fiz minha pré-análise pelo site e meu perfil foi pré-aprovado. Quero finalizar minha compra. 📱\n\n'+
-        '*Nome:* '+p.nome.replace(/\s+/g,' ')+'\n'+
-        '*Telefone:* '+fmtTel(p.telefone);
+      var texto='Olá! Vim pelo site e gostaria de conhecer as opções disponíveis para comprar meu celular novo.';
       a.href='https://wa.me/'+WA_VENDEDOR+'?text='+encodeURIComponent(texto);
       a.addEventListener('click',function(){try{(window.dataLayer=window.dataLayer||[]).push({event:'clique_whatsapp_vendedor',loja:p.loja});}catch(e){}});
     }
