@@ -1,10 +1,13 @@
-# Espaço do Celular — Landing page + Central de leads
+# Espaço do Celular — cópia do site (branch `site-copia`)
 
-Publicado automaticamente na Vercel (projeto `espacodocelularloja`) a cada atualização da branch `main`.
+Cópia da landing page, publicada num projeto próprio da Vercel. Não afeta o site original (branch `main`).
 
-- `index.html` — página principal
-- `pre-analise.html` — formulário de pré-análise
-- `central.html` — central de leads por loja (botão "Área da loja" no rodapé)
-- `api/` — funções do servidor (leads, cliques, login da central, envio ao CRM)
+- `index.html` — página principal, com o formulário de pré-análise logo após o primeiro bloco
+- `analise.html` — tela "Analisando seus dados"
+- `aprovado.html` — tela "Perfil pré-aprovado" com o botão do vendedor (WhatsApp 47 99915-1352)
+- `leads.html` — lista de leads, protegida por senha (botão "Acessar leads" no fim da página)
+- `pa.js` — lógica do formulário; grava os leads no Supabase (projeto central-de-trafego-sp, tabela leads_site)
+- `lojas.js` — lista das lojas
+- `videos/` — vídeos de depoimentos
 
-Configuração na Vercel: veja `COMO-ATIVAR.txt` e `.env.example`. Nenhuma senha fica neste repositório.
+Os leads só podem ser gravados pela chave pública; ler exige a senha (função listar_leads). A senha não fica neste repositório.

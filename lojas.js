@@ -23,7 +23,7 @@
       calLink: null,
       calEventTypeId: null,
       fuso: "America/Sao_Paulo",
-      whatsapp: null,
+      whatsapp: "5547999151352",
     },
     itajai: {
       codigo: "itajai",
@@ -31,7 +31,7 @@
       calLink: "espacodocelular/agendamento-na-loja",
       calEventTypeId: null,
       fuso: "America/Sao_Paulo",
-      whatsapp: "554799481741",
+      whatsapp: "5547999151352",
     },
     navegantes: {
       codigo: "navegantes",
@@ -39,7 +39,7 @@
       calLink: "espacodocelular/agendamento-na-loja",
       calEventTypeId: null,
       fuso: "America/Sao_Paulo",
-      whatsapp: "5547996439174",
+      whatsapp: "5547999151352",
     },
     camboriu: {
       codigo: "camboriu",
@@ -47,7 +47,7 @@
       calLink: "espacodocelular/agendamento-na-loja",
       calEventTypeId: null,
       fuso: "America/Sao_Paulo",
-      whatsapp: "5547997641397",
+      whatsapp: "5547999151352",
     },
   };
   if (typeof module !== "undefined" && module.exports) module.exports = LOJAS;

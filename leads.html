@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Leads — Espaço do Celular</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css?family=DM+Sans:400,500,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css?family=Montserrat:800,900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#000;color:#fff;font-family:"DM Sans",sans-serif}
+a{color:#FFC700}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 24px;border-bottom:2px solid #FFC700;background:#111}
+.top h1{font-family:"Montserrat",sans-serif;font-weight:900;font-size:22px;margin:0;letter-spacing:-.5px}
+.top h1 span{color:#FFC700}
+.top a{font-weight:700;font-size:14px;text-decoration:none}
+main{max-width:1200px;margin:0 auto;padding:28px 20px 60px}
+.login{max-width:400px;margin:60px auto;background:#111;border:2px solid #FFC700;border-radius:14px;padding:30px 24px;text-align:center}
+.login h2{font-family:"Montserrat",sans-serif;font-weight:800;margin:0 0 8px;font-size:24px}
+.login p{color:#bbb;margin:0 0 22px;font-size:15px}
+input{width:100%;font:inherit;font-size:16px;padding:13px 14px;border-radius:8px;border:1px solid #444;background:#000;color:#fff;outline:none}
+input:focus{border-color:#FFC700;box-shadow:0 0 0 3px #FFC70033}
+.btn{border:none;border-radius:8px;cursor:pointer;font:inherit;font-weight:700;font-size:16px;color:#000;padding:13px 20px;background-image:linear-gradient(180deg,#FFD21F 0%,#E0A500 100%)}
+.btn.sec{background:#222;color:#fff;border:1px solid #444;background-image:none}
+.login .btn{width:100%;margin-top:14px}
+.erro{color:#ff6b6b;font-size:14px;min-height:20px;margin-top:10px}
+.barra{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:18px}
+.barra input{flex:1;min-width:220px}
+.kpis{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.kpi{background:#111;border:1px solid #2a2a2a;border-left:4px solid #FFC700;border-radius:10px;padding:12px 16px;min-width:150px}
+.kpi b{display:block;font-size:26px;font-variant-numeric:tabular-nums}
+.kpi small{color:#aaa;font-size:13px}
+.tab{overflow-x:auto;border:1px solid #2a2a2a;border-radius:12px}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:820px}
+th{text-align:left;background:#111;color:#FFC700;font-size:12px;text-transform:uppercase;letter-spacing:.5px;padding:12px 14px;border-bottom:1px solid #2a2a2a;position:sticky;top:0}
+td{padding:11px 14px;border-bottom:1px solid #1d1d1d;vertical-align:top}
+tr:hover td{background:#0f0f0f}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.wa{display:inline-flex;align-items:center;gap:6px;color:#00E240;font-weight:700;text-decoration:none;white-space:nowrap}
+.wa svg{width:15px;height:15px;fill:#00E240}
+.utm{color:#999;font-size:12px}
+.vazio{text-align:center;color:#aaa;padding:50px 20px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="top"><h1>Leads <span>Espaço do Celular</span></h1><a href="index.html">← Voltar ao site</a></div>
+<main>
+  <form class="login" id="login">
+    <h2>Área restrita 🔒</h2>
+    <p>Digite a senha para ver quem preencheu o formulário de pré-análise.</p>
+    <input id="senha" type="password" placeholder="Senha" autocomplete="current-password" required>
+    <button class="btn" type="submit" id="entrar">ENTRAR</button>
+    <div class="erro" id="erro" role="alert"></div>
+  </form>
+
+  <section id="painel" hidden>
+    <div class="kpis">
+      <div class="kpi"><b id="kTotal">0</b><small>leads no total</small></div>
+      <div class="kpi"><b id="kHoje">0</b><small>hoje</small></div>
+      <div class="kpi"><b id="k7">0</b><small>últimos 7 dias</small></div>
+    </div>
+    <div class="barra">
+      <input id="busca" type="search" placeholder="Buscar por nome, telefone, CPF ou campanha">
+      <button class="btn sec" id="atualizar" type="button">Atualizar</button>
+      <button class="btn sec" id="csv" type="button">Baixar planilha (CSV)</button>
+      <button class="btn sec" id="sair" type="button">Sair</button>
+    </div>
+    <div class="tab">
+      <table>
+        <thead><tr><th>Data</th><th>Nome</th><th>Telefone</th><th>CPF</th><th>Loja</th><th>Origem / campanha</th></tr></thead>
+        <tbody id="linhas"></tbody>
+      </table>
+      <div class="vazio" id="vazio" hidden>Nenhum lead encontrado.</div>
+    </div>
+  </section>
+</main>
+<script>
+(function(){
+  var SB_URL='https://lknyabeytbogmnfmnfpl.supabase.co',SB_KEY='sb_publishable_BxoXf3yXNVkAFfOnJUKBHA_UVn_wl3W';
+  var LOJAS={colombo:'Colombo',itajai:'Itajaí',navegantes:'Navegantes',camboriu:'Camboriú'};
+  var WA='<svg viewBox="0 0 448 512"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6z"/></svg>';
+  var senha='',dados=[];
+  var $=function(id){return document.getElementById(id);};
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function dig(s){return String(s||'').replace(/\D/g,'');}
+  function fmtTel(t){var d=dig(t).replace(/^55/,'');return d.length>=10?'('+d.slice(0,2)+') '+d.slice(2,d.length-4)+'-'+d.slice(-4):t;}
+  function fmtCpf(c){c=dig(c);return c.length===11?c.slice(0,3)+'.'+c.slice(3,6)+'.'+c.slice(6,9)+'-'+c.slice(9):(c||'—');}
+  function fmtData(iso){var d=new Date(iso);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+  function origem(l){var p=[l.utm_source,l.utm_medium,l.utm_campaign].filter(Boolean);return p.length?p.join(' / '):'Direto';}
+
+  function carregar(){
+    $('entrar').disabled=true;$('erro').textContent='';
+    return fetch(SB_URL+'/rest/v1/rpc/listar_leads',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({senha:senha})})
+      .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+      .then(function(x){
+        $('entrar').disabled=false;
+        if(!x.ok){
+          var msg=(x.j&&x.j.message)||'';
+          if(/senha/.test(msg)){try{sessionStorage.removeItem('edc_leads_s');}catch(e){}mostrarLogin('Senha incorreta.');}
+          else mostrarLogin('Não foi possível carregar os leads. Tente de novo.');
+          return;
+        }
+        try{sessionStorage.setItem('edc_leads_s',senha);}catch(e){}
+        dados=x.j||[];$('login').hidden=true;$('painel').hidden=false;render();
+      })
+      .catch(function(){$('entrar').disabled=false;mostrarLogin('Sem conexão. Tente de novo.');});
+  }
+  function mostrarLogin(msg){$('painel').hidden=true;$('login').hidden=false;$('erro').textContent=msg||'';}
+
+  function filtrados(){
+    var q=$('busca').value.trim().toLowerCase(),qd=dig(q);
+    if(!q)return dados;
+    return dados.filter(function(l){
+      var txt=[l.nome,l.loja,l.utm_source,l.utm_medium,l.utm_campaign,l.utm_content].join(' ').toLowerCase();
+      return txt.indexOf(q)>=0||(qd&&(dig(l.telefone).indexOf(qd)>=0||dig(l.cpf).indexOf(qd)>=0));
+    });
+  }
+  function render(){
+    var hoje=new Date();hoje.setHours(0,0,0,0);var sete=Date.now()-7*864e5;
+    $('kTotal').textContent=dados.length;
+    $('kHoje').textContent=dados.filter(function(l){return new Date(l.criado_em)>=hoje;}).length;
+    $('k7').textContent=dados.filter(function(l){return new Date(l.criado_em).getTime()>=sete;}).length;
+    var lista=filtrados();
+    $('vazio').hidden=lista.length>0;
+    $('linhas').innerHTML=lista.map(function(l){
+      var tel=dig(l.telefone);
+      return '<tr><td class="num">'+esc(fmtData(l.criado_em))+'</td><td>'+esc(l.nome)+'</td>'+
+        '<td><a class="wa" target="_blank" rel="noopener" href="https://wa.me/'+esc(tel)+'">'+WA+esc(fmtTel(l.telefone))+'</a></td>'+
+        '<td class="num">'+esc(fmtCpf(l.cpf))+'</td><td>'+esc(LOJAS[l.loja]||l.loja||'—')+'</td>'+
+        '<td class="utm">'+esc(origem(l))+(l.utm_content?'<br>'+esc(l.utm_content):'')+'</td></tr>';
+    }).join('');
+  }
+  function csv(){
+    var cab=['Data','Nome','Telefone','CPF','Loja','utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+    var linhas=filtrados().map(function(l){return [fmtData(l.criado_em),l.nome,fmtTel(l.telefone),fmtCpf(l.cpf),LOJAS[l.loja]||l.loja,l.utm_source,l.utm_medium,l.utm_campaign,l.utm_content,l.utm_term];});
+    var txt=[cab].concat(linhas).map(function(r){return r.map(function(v){v=String(v==null?'':v);return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(';');}).join('\r\n');
+    var a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+txt],{type:'text/csv;charset=utf-8'}));
+    a.download='leads-espaco-do-celular.csv';document.body.appendChild(a);a.click();a.remove();
+  }
+
+  $('login').addEventListener('submit',function(e){e.preventDefault();senha=$('senha').value;carregar();});
+  $('busca').addEventListener('input',render);
+  $('atualizar').addEventListener('click',carregar);
+  $('csv').addEventListener('click',csv);
+  $('sair').addEventListener('click',function(){senha='';dados=[];try{sessionStorage.removeItem('edc_leads_s');}catch(e){}$('senha').value='';mostrarLogin('');});
+  try{var s=sessionStorage.getItem('edc_leads_s');if(s){senha=s;carregar();}}catch(e){}
+})();
+</script>
+</body>
+</html>
