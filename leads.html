@@ -32,8 +32,14 @@ input:focus{border-color:#FFC700;box-shadow:0 0 0 3px #FFC70033}
 .kpi{background:#111;border:1px solid #2a2a2a;border-left:4px solid #FFC700;border-radius:10px;padding:12px 16px;min-width:150px}
 .kpi b{display:block;font-size:26px;font-variant-numeric:tabular-nums}
 .kpi small{color:#aaa;font-size:13px}
+.kpi.verde{border-left-color:#00E240}
+.kpi.verde b{color:#00E240}
+.secao{font-family:"Montserrat",sans-serif;font-weight:800;font-size:15px;letter-spacing:.3px;text-transform:uppercase;color:#FFC700;margin:6px 0 10px}
+.secao.verde{color:#00E240}
+.ok{color:#00E240;font-weight:700;white-space:nowrap}
+.nao{color:#555}
 .tab{overflow-x:auto;border:1px solid #2a2a2a;border-radius:12px}
-table{width:100%;border-collapse:collapse;font-size:14px;min-width:820px}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:940px}
 th{text-align:left;background:#111;color:#FFC700;font-size:12px;text-transform:uppercase;letter-spacing:.5px;padding:12px 14px;border-bottom:1px solid #2a2a2a;position:sticky;top:0}
 td{padding:11px 14px;border-bottom:1px solid #1d1d1d;vertical-align:top}
 tr:hover td{background:#0f0f0f}
@@ -57,6 +63,15 @@ td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
   </form>
 
   <section id="painel" hidden>
+    <div class="secao verde">Cliques no WhatsApp</div>
+    <div class="kpis">
+      <div class="kpi verde"><b id="cTotal">0</b><small>cliques em "Compre pelo WhatsApp"</small></div>
+      <div class="kpi verde"><b id="cPessoas">0</b><small>pessoas diferentes que clicaram</small></div>
+      <div class="kpi verde"><b id="cHoje">0</b><small>cliques hoje</small></div>
+      <div class="kpi verde"><b id="c7">0</b><small>cliques nos últimos 7 dias</small></div>
+      <div class="kpi verde"><b id="cFin">0</b><small>cliques em "Finalizar com vendedor"</small></div>
+    </div>
+    <div class="secao">Formulário de pré-análise</div>
     <div class="kpis">
       <div class="kpi"><b id="kTotal">0</b><small>leads no total</small></div>
       <div class="kpi"><b id="kHoje">0</b><small>hoje</small></div>
@@ -70,7 +85,7 @@ td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
     </div>
     <div class="tab">
       <table>
-        <thead><tr><th>Data</th><th>Nome</th><th>Telefone</th><th>CPF</th><th>Loja</th><th>Origem / campanha</th></tr></thead>
+        <thead><tr><th>Data</th><th>Nome</th><th>Telefone</th><th>CPF</th><th>Loja</th><th>Clicou no WhatsApp</th><th>Origem / campanha</th></tr></thead>
         <tbody id="linhas"></tbody>
       </table>
       <div class="vazio" id="vazio" hidden>Nenhum lead encontrado.</div>
@@ -82,7 +97,7 @@ td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
   var SB_URL='https://lknyabeytbogmnfmnfpl.supabase.co',SB_KEY='sb_publishable_BxoXf3yXNVkAFfOnJUKBHA_UVn_wl3W';
   var LOJAS={colombo:'Colombo',itajai:'Itajaí',navegantes:'Navegantes',camboriu:'Camboriú'};
   var WA='<svg viewBox="0 0 448 512"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6z"/></svg>';
-  var senha='',dados=[];
+  var senha='',dados=[],cliques=[];
   var $=function(id){return document.getElementById(id);};
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function dig(s){return String(s||'').replace(/\D/g,'');}
@@ -93,9 +108,10 @@ td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
 
   function carregar(){
     $('entrar').disabled=true;$('erro').textContent='';
-    return fetch(SB_URL+'/rest/v1/rpc/listar_leads',{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({senha:senha})})
-      .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
-      .then(function(x){
+    function rpc(nome){return fetch(SB_URL+'/rest/v1/rpc/'+nome,{method:'POST',headers:{'Content-Type':'application/json','apikey':SB_KEY},body:JSON.stringify({senha:senha})})
+      .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});});}
+    return Promise.all([rpc('listar_leads'),rpc('listar_cliques')])
+      .then(function(res){var x=res[0];cliques=res[1].ok?(res[1].j||[]):[];
         $('entrar').disabled=false;
         if(!x.ok){
           var msg=(x.j&&x.j.message)||'';
@@ -118,24 +134,37 @@ td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
       return txt.indexOf(q)>=0||(qd&&(dig(l.telefone).indexOf(qd)>=0||dig(l.cpf).indexOf(qd)>=0));
     });
   }
+  function celulaClique(l){
+    var cs=cliques.filter(function(c){return c.external_id&&c.external_id===l.external_id;});
+    if(!cs.length)return '<td class="nao">Não</td>';
+    var ult=cs[0];
+    return '<td class="ok">✔ Sim'+(cs.length>1?' ('+cs.length+'x)':'')+'<br><span class="utm">'+esc(fmtData(ult.criado_em))+'</span></td>';
+  }
   function render(){
     var hoje=new Date();hoje.setHours(0,0,0,0);var sete=Date.now()-7*864e5;
     $('kTotal').textContent=dados.length;
     $('kHoje').textContent=dados.filter(function(l){return new Date(l.criado_em)>=hoje;}).length;
     $('k7').textContent=dados.filter(function(l){return new Date(l.criado_em).getTime()>=sete;}).length;
+    var compre=cliques.filter(function(c){return c.botao==='compre_whatsapp';});
+    var pessoas={};compre.forEach(function(c){pessoas[c.visitante||c.id]=1;});
+    $('cTotal').textContent=compre.length;
+    $('cPessoas').textContent=Object.keys(pessoas).length;
+    $('cHoje').textContent=compre.filter(function(c){return new Date(c.criado_em)>=hoje;}).length;
+    $('c7').textContent=compre.filter(function(c){return new Date(c.criado_em).getTime()>=sete;}).length;
+    $('cFin').textContent=cliques.filter(function(c){return c.botao==='finalizar_vendedor';}).length;
     var lista=filtrados();
     $('vazio').hidden=lista.length>0;
     $('linhas').innerHTML=lista.map(function(l){
       var tel=dig(l.telefone);
       return '<tr><td class="num">'+esc(fmtData(l.criado_em))+'</td><td>'+esc(l.nome)+'</td>'+
         '<td><a class="wa" target="_blank" rel="noopener" href="https://wa.me/'+esc(tel)+'">'+WA+esc(fmtTel(l.telefone))+'</a></td>'+
-        '<td class="num">'+esc(fmtCpf(l.cpf))+'</td><td>'+esc(LOJAS[l.loja]||l.loja||'—')+'</td>'+
+        '<td class="num">'+esc(fmtCpf(l.cpf))+'</td><td>'+esc(LOJAS[l.loja]||l.loja||'—')+'</td>'+celulaClique(l)+
         '<td class="utm">'+esc(origem(l))+(l.utm_content?'<br>'+esc(l.utm_content):'')+'</td></tr>';
     }).join('');
   }
   function csv(){
-    var cab=['Data','Nome','Telefone','CPF','Loja','utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
-    var linhas=filtrados().map(function(l){return [fmtData(l.criado_em),l.nome,fmtTel(l.telefone),fmtCpf(l.cpf),LOJAS[l.loja]||l.loja,l.utm_source,l.utm_medium,l.utm_campaign,l.utm_content,l.utm_term];});
+    var cab=['Data','Nome','Telefone','CPF','Loja','Clicou no WhatsApp','utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+    var linhas=filtrados().map(function(l){return [fmtData(l.criado_em),l.nome,fmtTel(l.telefone),fmtCpf(l.cpf),LOJAS[l.loja]||l.loja,cliques.some(function(c){return c.external_id&&c.external_id===l.external_id;})?'Sim':'Não',l.utm_source,l.utm_medium,l.utm_campaign,l.utm_content,l.utm_term];});
     var txt=[cab].concat(linhas).map(function(r){return r.map(function(v){v=String(v==null?'':v);return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(';');}).join('\r\n');
     var a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['﻿'+txt],{type:'text/csv;charset=utf-8'}));
     a.download='leads-espaco-do-celular.csv';document.body.appendChild(a);a.click();a.remove();

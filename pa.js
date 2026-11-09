@@ -126,6 +126,33 @@
   
   /* ---------- Modo da página: form (site), analise (processando), aprovado ---------- */
   var MODO=document.body.getAttribute('data-pa')||'form';
+
+  /* ---------- Cliques nos botões de WhatsApp (contados na página de leads) ---------- */
+  function visitanteId(){
+    var k='edc_visitante',v=null;
+    try{v=localStorage.getItem(k);}catch(e){}
+    if(!v){v='v-'+uuid();try{localStorage.setItem(k,v);}catch(e){}}
+    return v;
+  }
+  function registrarClique(botao,posicao){
+    try{
+      var u=lerUtms()||{},s=lerSub();
+      var corpo={botao:botao,posicao:posicao||null,visitante:visitanteId(),
+        external_id:(s&&s.payload&&s.payload.external_id)||null,
+        utm_source:u.utm_source||null,utm_medium:u.utm_medium||null,utm_campaign:u.utm_campaign||null,utm_content:u.utm_content||null};
+      fetch(SB_URL+'/rest/v1/cliques_whatsapp',{method:'POST',keepalive:true,credentials:'omit',
+        headers:{'Content-Type':'application/json','apikey':SB_KEY,'Prefer':'return=minimal'},body:JSON.stringify(corpo)}).catch(function(){});
+    }catch(e){}
+  }
+  document.addEventListener('click',function(e){
+    var a=e.target&&e.target.closest?e.target.closest('a[href*="wa.me/"]'):null;
+    if(!a)return;
+    if(a.classList.contains('pa-cta')){registrarClique('finalizar_vendedor','pre-aprovado');return;}
+    var todos=[].slice.call(document.querySelectorAll('a[href*="wa.me/"]:not(.pa-cta)'));
+    var i=todos.indexOf(a);
+    registrarClique('compre_whatsapp',i===0?'topo':i===todos.length-1?'final':'botao-'+(i+1));
+  },true);
+
   var box=document.querySelector('.pa-box');
   /* Reserva: nome/telefone/loja vão no endereço caso o navegador bloqueie o armazenamento. CPF nunca vai no endereço. */
   function hashDe(s){var p=s.payload;return '#d='+encodeURIComponent(JSON.stringify({nome:p.nome,telefone:p.telefone,loja:p.loja}));}
