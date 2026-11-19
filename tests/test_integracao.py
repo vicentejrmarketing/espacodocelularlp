@@ -185,7 +185,7 @@ try:
             pg.click(".pa-submit"); pg.wait_for_selector(".pa-cta", timeout=15000); pg.wait_for_timeout(800)
             msg = pg.inner_text(".pa-cal-msg")
             ok(f"P1 [{disp}] Colombo: lista única com Colombo; cadastro confirmado antes da mensagem de recebido; sem agenda de outra loja",
-               opts == ["", "colombo", "itajai", "navegantes", "camboriu"] and sub(pg)["enviado"] and "Seus dados foram recebidos" in msg and pg.get_attribute(".pa-cta", "data-cal-link") is None, msg)
+               opts == ["", "colombo", "itajai", "navegantes", "camboriu", "florianopolis"] and sub(pg)["enviado"] and "Seus dados foram recebidos" in msg and pg.get_attribute(".pa-cta", "data-cal-link") is None, msg)
             ok(f"P2 [{disp}] Colombo sem WhatsApp: botão desativado, sem link", pg.get_attribute(".pa-cta", "href") is None and pg.get_attribute(".pa-cta", "aria-disabled") == "true")
             c.close()
 

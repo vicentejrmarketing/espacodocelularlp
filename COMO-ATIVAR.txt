@@ -24,6 +24,7 @@ ACESSOS
 - Itajaí ....... itajaiedc@gmail.com
 - Navegantes ... espacodocelular44@gmail.com
 - Camboriú ..... edccamboriu1@gmail.com
+- Florianópolis  ainda sem acesso próprio (o gerente vê os leads de Florianópolis)
 - Gerente ...... usuário: gerente   (vê todas as lojas)
 Cada loja vê só os próprios leads e cliques.
 

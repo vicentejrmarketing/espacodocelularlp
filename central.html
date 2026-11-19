@@ -183,7 +183,7 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
   var CH='edc_central_sessao', token=null, D=null, periodo='tudo', timer=null, filtroSt='todos';
   var ST=[['novo','Novo'],['em_atendimento','Em atendimento'],['recusado','Recusado'],['comprou','Comprou']];
   var ST_NOME={};ST.forEach(function(s){ST_NOME[s[0]]=s[1];});
-  var NOMES={itajai:'Itajaí',navegantes:'Navegantes',camboriu:'Camboriú',colombo:'Colombo',geral:'Gerente'};
+  var NOMES={itajai:'Itajaí',navegantes:'Navegantes',camboriu:'Camboriú',florianopolis:'Florianópolis',colombo:'Colombo',geral:'Gerente'};
   function $(id){return document.getElementById(id);}
   function guardar(t){try{if(t)sessionStorage.setItem(CH,t);else sessionStorage.removeItem(CH);}catch(e){}}
   function lerGuardado(){try{return sessionStorage.getItem(CH);}catch(e){return null;}}

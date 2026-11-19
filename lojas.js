@@ -49,6 +49,14 @@
       fuso: "America/Sao_Paulo",
       whatsapp: "5547997641397",
     },
+    florianopolis: {
+      codigo: "florianopolis",
+      nome: "Florianópolis",
+      calLink: null,
+      calEventTypeId: null,
+      fuso: "America/Sao_Paulo",
+      whatsapp: "5548996270809",
+    },
   };
   if (typeof module !== "undefined" && module.exports) module.exports = LOJAS;
   else raiz.EDC_LOJAS = LOJAS;
