@@ -5359,7 +5359,95 @@ filtro('realme');
 				<div class="elementor-element elementor-element-43a869a elementor-widget__width-initial elementor-widget-tablet__width-initial elementor-widget-mobile__width-initial elementor-widget elementor-widget-image-box" data-id="43a869a" data-element_type="widget" data-e-type="widget"  data-widget_type="image-box.default">
 					<div class="elementor-image-box-wrapper"><div class="elementor-image-box-content"><h1 class="elementor-image-box-title">COMPRE NA LOJA MAIS PRÓXIMA DE VOCÊ!</h1></div></div>				</div>
 				</div>
-		<div class="elementor-element elementor-element-518110f e-con-full e-flex e-con e-child" data-id="518110f" data-element_type="container" data-e-type="container">
+		<div class="edc-busca-loja" role="search" aria-label="Encontre a loja mais próxima">
+  <form class="edc-bl-campo" id="edcCepForm" novalidate>
+    <label for="edcCep">Digite seu CEP</label>
+    <div class="edc-bl-linha">
+      <input id="edcCep" type="text" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" maxlength="9">
+      <button type="submit" id="edcCepBtn">Encontrar loja</button>
+    </div>
+  </form>
+  <div class="edc-bl-ou" aria-hidden="true">ou</div>
+  <div class="edc-bl-campo">
+    <label for="edcCidade">Escolha a cidade</label>
+    <select id="edcCidade"><option value="">Todas as cidades</option></select>
+  </div>
+  <div class="edc-bl-msg" id="edcBlMsg" role="status" aria-live="polite"></div>
+</div>
+<style id="edc-busca-loja-css">
+.edc-busca-loja{width:100%;max-width:860px;margin:0 auto 34px;padding:18px 20px;background:#111;border:1px solid #2a2a2a;border-radius:16px;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:center;gap:12px 18px;font-family:Montserrat,Arial,sans-serif;box-sizing:border-box}
+.edc-busca-loja *{box-sizing:border-box}
+.edc-bl-campo{flex:1 1 280px;min-width:0;margin:0}
+.edc-bl-campo label{display:block;color:#bdbdbd;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin:0 0 7px;text-align:left}
+.edc-bl-linha{display:flex;gap:8px}
+.edc-busca-loja input,.edc-busca-loja select{width:100%;height:48px;font:inherit;font-size:16px;color:#fff;background:#000;border:1px solid #3a3a3a;border-radius:10px;padding:0 14px;margin:0}
+.edc-busca-loja select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%,#FFC700 50%),linear-gradient(135deg,#FFC700 50%,transparent 50%);background-position:calc(100% - 20px) 52%,calc(100% - 14px) 52%;background-size:6px 6px;background-repeat:no-repeat;padding-right:38px;cursor:pointer}
+.edc-busca-loja input:focus,.edc-busca-loja select:focus{outline:2px solid #FFC700;outline-offset:1px;border-color:#FFC700}
+.edc-busca-loja button{flex:0 0 auto;height:48px;padding:0 18px;font:inherit;font-size:15px;font-weight:800;color:#000;background:#FFC700;border:0;border-radius:10px;cursor:pointer;white-space:nowrap}
+.edc-busca-loja button:disabled{opacity:.6;cursor:wait}
+.edc-bl-ou{flex:0 0 auto;color:#8a8a8a;font-weight:700;font-size:14px;padding-bottom:14px}
+.edc-bl-msg{flex:1 1 100%;color:#eaeaea;font-size:15px;line-height:1.45;text-align:center;min-height:0}
+.edc-bl-msg:empty{display:none}
+.edc-bl-msg b{color:#FFC700}
+.edc-bl-msg.erro{color:#ff8a8a}
+.edc-bl-msg .edc-bl-todas{background:none;border:0;padding:0;height:auto;color:#FFC700;font-weight:700;font-size:14px;text-decoration:underline;margin-left:6px;cursor:pointer}
+@media (max-width:640px){.edc-busca-loja{padding:16px 14px;margin-bottom:24px}.edc-bl-ou{padding:0;flex-basis:100%;text-align:center}.edc-bl-linha button{padding:0 14px}}
+</style>
+<script>
+/* Busca de loja: por CEP (loja mais próxima) ou pela cidade. Mostra só o card da loja escolhida. */
+(function(){
+  function iniciar(){
+    var linha=document.querySelector('#lojas .elementor-element-518110f');if(!linha)return;
+    var cards=[];
+    linha.querySelectorAll('a[href*="pre-analise.html?loja="]').forEach(function(a){
+      var m=/loja=([a-z0-9-]+)/.exec(a.getAttribute('href'));if(!m)return;
+      var col=a;while(col&&col.parentElement&&col.parentElement!==linha)col=col.parentElement;
+      var h=col&&col.querySelector('h1,h2,h3');
+      cards.push({codigo:m[1],col:col,nome:h?h.textContent.replace(/📍/g,'').trim():m[1]});
+    });
+    var sel=document.getElementById('edcCidade'),form=document.getElementById('edcCepForm'),inp=document.getElementById('edcCep'),btn=document.getElementById('edcCepBtn'),msg=document.getElementById('edcBlMsg');
+    var NOMES={itajai:'Itajaí',navegantes:'Navegantes',camboriu:'Camboriú',florianopolis:'Florianópolis',colombo:'Colombo'};
+    cards.forEach(function(c){var o=document.createElement('option');o.value=c.codigo;o.textContent=NOMES[c.codigo]||c.nome;sel.appendChild(o);c.rotulo=o.textContent;});
+    function rotulo(cod){var c=cards.filter(function(x){return x.codigo===cod;})[0];return c?c.rotulo:cod;}
+    function filtrar(cod,rolar){
+      cards.forEach(function(c){c.col.style.display=(!cod||c.codigo===cod)?'':'none';});
+      if(cod&&rolar){var c=cards.filter(function(x){return x.codigo===cod;})[0];if(c&&c.col.scrollIntoView)setTimeout(function(){c.col.scrollIntoView({behavior:'smooth',block:'start'});},60);}
+    }
+    function mostrar(html,erro){
+      msg.className='edc-bl-msg'+(erro?' erro':'');msg.innerHTML=html;
+      var b=msg.querySelector('.edc-bl-todas');if(b)b.addEventListener('click',function(){sel.value='';filtrar('');msg.innerHTML='';inp.value='';});
+    }
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+    var TODAS=' <button type="button" class="edc-bl-todas">Ver todas as lojas</button>';
+    sel.addEventListener('change',function(){
+      filtrar(sel.value,false);
+      mostrar(sel.value?'Mostrando a loja de <b>'+esc(rotulo(sel.value))+'</b>.'+TODAS:'');
+    });
+    inp.addEventListener('input',function(){var d=inp.value.replace(/\D/g,'').slice(0,8);inp.value=d.length>5?d.slice(0,5)+'-'+d.slice(5):d;});
+    form.addEventListener('submit',function(e){
+      e.preventDefault();
+      var cep=inp.value.replace(/\D/g,'');
+      if(cep.length!==8){mostrar('Digite o CEP completo, com 8 números.',true);inp.focus();return;}
+      btn.disabled=true;btn.textContent='Buscando...';mostrar('');
+      fetch('/api/loja-proxima?cep='+cep).then(function(r){return r.json().catch(function(){return {ok:false};});}).then(function(j){
+        if(!j||!j.ok){
+          mostrar(j&&j.erro==='cep_nao_encontrado'?'Não encontramos esse CEP. Confira os números.':'Não foi possível buscar pelo CEP agora. Escolha a sua cidade na lista.',true);
+          return;
+        }
+        sel.value=j.loja.codigo;filtrar(j.loja.codigo,true);
+        var onde=esc(j.endereco.cidade)+(j.endereco.uf?' – '+esc(j.endereco.uf):'');
+        mostrar(j.criterio==='cidade'
+          ?'📍 Temos loja em <b>'+onde+'</b>! Esta é a nossa loja de <b>'+esc(rotulo(j.loja.codigo))+'</b>.'+TODAS
+          :'📍 A loja mais próxima de '+onde+' é a de <b>'+esc(rotulo(j.loja.codigo))+'</b>'+(j.distancia_km!=null?' (cerca de '+Math.max(1,Math.round(j.distancia_km))+' km)':'')+'.'+TODAS);
+        try{(window.dataLayer=window.dataLayer||[]).push({event:'busca_loja_cep',loja:j.loja.codigo,criterio:j.criterio});}catch(e){}
+      }).catch(function(){mostrar('Sem conexão. Tente de novo ou escolha a sua cidade na lista.',true);})
+      .then(function(){btn.disabled=false;btn.textContent='Encontrar loja';});
+    });
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);else iniciar();
+})();
+</script>
+<div class="elementor-element elementor-element-518110f e-con-full e-flex e-con e-child" data-id="518110f" data-element_type="container" data-e-type="container">
 		<div class="elementor-element elementor-element-4a932f1 e-con-full e-flex e-con e-child" data-id="4a932f1" data-element_type="container" data-e-type="container">
 		<div class="elementor-element elementor-element-38a6564 e-con-full e-flex e-con e-child" data-id="38a6564" data-element_type="container" data-e-type="container">
 				<div class="elementor-element elementor-element-b03eff8 elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="b03eff8" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
