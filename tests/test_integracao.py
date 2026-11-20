@@ -196,7 +196,7 @@ try:
             u = pg.get_attribute(".pa-cta", "href") or ""; q = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(u).query))
             idp = sub(pg)["payload"]["external_id"]
             ok(f"P3 [{disp}] cadastro enviado antes do botão; clique duplo: 1 envio", antes == 1 and len(A.log()["recebidos"]) == 1 and not pg.abas)
-            ok(f"P4 [{disp}] botão leva ao WhatsApp da loja escolhida com nome, telefone e loja", urllib.parse.urlparse(u).netloc == "wa.me" and urllib.parse.urlparse(u).path == "/5547997290399" and "Pessoa Sintetica" in q.get("text", "") and "Itajaí" in q.get("text", "") and "FINALIZE A COMPRA COM VENDEDOR" in pg.inner_text(".pa-cta"), u)
+            ok(f"P4 [{disp}] botão leva ao WhatsApp da loja escolhida com nome, telefone e loja", urllib.parse.urlparse(u).netloc == "wa.me" and urllib.parse.urlparse(u).path == "/5547933868196" and "Pessoa Sintetica" in q.get("text", "") and "Itajaí" in q.get("text", "") and "FINALIZE A COMPRA COM VENDEDOR" in pg.inner_text(".pa-cta"), u)
             ok(f"P5 [{disp}] nenhum CPF no link do WhatsApp", "52998224725" not in u.replace(".", "").replace("-", "") and "cpf" not in u.lower())
             pg.goto(A.base + "/pre-analise.html?loja=itajai"); pg.wait_for_timeout(700)
             ok(f"P6 [{disp}] retomada após recarregar: mesmo id, sem novo envio", pg.locator(".pa-cta").count() == 1 and sub(pg)["payload"]["external_id"] == idp and len(A.log()["recebidos"]) == 1)

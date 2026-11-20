@@ -31,7 +31,7 @@
       calLink: "espacodocelular/agendamento-na-loja",
       calEventTypeId: null,
       fuso: "America/Sao_Paulo",
-      whatsapp: "5547997290399",
+      whatsapp: "5547933868196",
     },
     navegantes: {
       codigo: "navegantes",
