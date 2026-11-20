@@ -5359,7 +5359,8 @@ filtro('realme');
 				<div class="elementor-element elementor-element-43a869a elementor-widget__width-initial elementor-widget-tablet__width-initial elementor-widget-mobile__width-initial elementor-widget elementor-widget-image-box" data-id="43a869a" data-element_type="widget" data-e-type="widget"  data-widget_type="image-box.default">
 					<div class="elementor-image-box-wrapper"><div class="elementor-image-box-content"><h1 class="elementor-image-box-title">COMPRE NA LOJA MAIS PRÓXIMA DE VOCÊ!</h1></div></div>				</div>
 				</div>
-		<div class="edc-busca-loja" role="search" aria-label="Encontre a loja mais próxima">
+		<script src="lojas.js"></script>
+<div class="edc-busca-loja" role="search" aria-label="Encontre a loja mais próxima">
   <form class="edc-bl-campo" id="edcCepForm" novalidate>
     <label for="edcCep">Digite seu CEP</label>
     <div class="edc-bl-linha">
@@ -5394,34 +5395,49 @@ filtro('realme');
 @media (max-width:640px){.edc-busca-loja{padding:16px 14px;margin-bottom:24px}.edc-bl-ou{padding:0;flex-basis:100%;text-align:center}.edc-bl-linha button{padding:0 14px}}
 </style>
 <script>
-/* Busca de loja: por CEP (loja mais próxima) ou pela cidade. Mostra só o card da loja escolhida. */
+/* Busca de loja: por CEP (loja mais próxima) ou pela cidade (todas as lojas da cidade). */
 (function(){
   function iniciar(){
     var linha=document.querySelector('#lojas .elementor-element-518110f');if(!linha)return;
-    var cards=[];
+    var L=window.EDC_LOJAS||{}, cards=[];
     linha.querySelectorAll('a[href*="pre-analise.html?loja="]').forEach(function(a){
       var m=/loja=([a-z0-9-]+)/.exec(a.getAttribute('href'));if(!m)return;
       var col=a;while(col&&col.parentElement&&col.parentElement!==linha)col=col.parentElement;
-      var h=col&&col.querySelector('h1,h2,h3');
-      cards.push({codigo:m[1],col:col,nome:h?h.textContent.replace(/📍/g,'').trim():m[1]});
+      var d=L[m[1]]||{};
+      cards.push({codigo:m[1],col:col,nome:d.nome||m[1],cidade:d.cidade||d.nome||m[1],uf:d.uf||''});
     });
     var sel=document.getElementById('edcCidade'),form=document.getElementById('edcCepForm'),inp=document.getElementById('edcCep'),btn=document.getElementById('edcCepBtn'),msg=document.getElementById('edcBlMsg');
-    var NOMES={itajai:'Itajaí',navegantes:'Navegantes',camboriu:'Camboriú',florianopolis:'Florianópolis',colombo:'Colombo'};
-    cards.forEach(function(c){var o=document.createElement('option');o.value=c.codigo;o.textContent=NOMES[c.codigo]||c.nome;sel.appendChild(o);c.rotulo=o.textContent;});
-    function rotulo(cod){var c=cards.filter(function(x){return x.codigo===cod;})[0];return c?c.rotulo:cod;}
-    function filtrar(cod,rolar){
-      cards.forEach(function(c){c.col.style.display=(!cod||c.codigo===cod)?'':'none';});
-      if(cod&&rolar){var c=cards.filter(function(x){return x.codigo===cod;})[0];if(c&&c.col.scrollIntoView)setTimeout(function(){c.col.scrollIntoView({behavior:'smooth',block:'start'});},60);}
+    // lista de cidades (sem repetir), agrupadas por estado
+    var UFS={SC:'Santa Catarina',PR:'Paraná',RS:'Rio Grande do Sul'}, porUf={}, cont={};
+    cards.forEach(function(c){var k=c.uf+'|'+c.cidade;cont[k]=(cont[k]||0)+1;if(cont[k]===1)(porUf[c.uf]=porUf[c.uf]||[]).push(c.cidade);});
+    ['SC','PR','RS'].concat(Object.keys(porUf).filter(function(u){return !UFS[u];})).forEach(function(uf){
+      if(!porUf[uf])return;
+      var g=document.createElement('optgroup');g.label=UFS[uf]||uf;
+      porUf[uf].sort(function(a,b){return a.localeCompare(b,'pt-BR');}).forEach(function(cid){
+        var o=document.createElement('option');o.value=uf+'|'+cid;var n=cont[uf+'|'+cid];
+        o.textContent=cid+(n>1?' ('+n+' lojas)':'');g.appendChild(o);
+      });
+      sel.appendChild(g);
+    });
+    function mostrarSo(teste,rolar){
+      var primeiro=null;
+      cards.forEach(function(c){var v=teste(c);c.col.style.display=v?'':'none';if(v&&!primeiro)primeiro=c;});
+      if(rolar&&primeiro&&primeiro.col.scrollIntoView)setTimeout(function(){primeiro.col.scrollIntoView({behavior:'smooth',block:'start'});},60);
     }
+    function todas(){mostrarSo(function(){return true;});}
     function mostrar(html,erro){
       msg.className='edc-bl-msg'+(erro?' erro':'');msg.innerHTML=html;
-      var b=msg.querySelector('.edc-bl-todas');if(b)b.addEventListener('click',function(){sel.value='';filtrar('');msg.innerHTML='';inp.value='';});
+      var b=msg.querySelector('.edc-bl-todas');if(b)b.addEventListener('click',function(){sel.value='';todas();msg.innerHTML='';inp.value='';});
+      var c=msg.querySelector('.edc-bl-cidade');if(c)c.addEventListener('click',function(){sel.value=c.getAttribute('data-k');sel.dispatchEvent(new Event('change'));});
     }
     function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
     var TODAS=' <button type="button" class="edc-bl-todas">Ver todas as lojas</button>';
     sel.addEventListener('change',function(){
-      filtrar(sel.value,false);
-      mostrar(sel.value?'Mostrando a loja de <b>'+esc(rotulo(sel.value))+'</b>.'+TODAS:'');
+      var k=sel.value;
+      if(!k){todas();mostrar('');return;}
+      mostrarSo(function(c){return c.uf+'|'+c.cidade===k;},false);
+      var n=cont[k],cid=k.split('|')[1];
+      mostrar((n>1?'Temos <b>'+n+' lojas</b> em <b>'+esc(cid)+'</b>.':'Mostrando a loja de <b>'+esc(cid)+'</b>.')+TODAS);
     });
     inp.addEventListener('input',function(){var d=inp.value.replace(/\D/g,'').slice(0,8);inp.value=d.length>5?d.slice(0,5)+'-'+d.slice(5):d;});
     form.addEventListener('submit',function(e){
@@ -5434,11 +5450,14 @@ filtro('realme');
           mostrar(j&&j.erro==='cep_nao_encontrado'?'Não encontramos esse CEP. Confira os números.':'Não foi possível buscar pelo CEP agora. Escolha a sua cidade na lista.',true);
           return;
         }
-        sel.value=j.loja.codigo;filtrar(j.loja.codigo,true);
+        var alvo=cards.filter(function(c){return c.codigo===j.loja.codigo;})[0];
+        sel.value='';mostrarSo(function(c){return c.codigo===j.loja.codigo;},true);
         var onde=esc(j.endereco.cidade)+(j.endereco.uf?' – '+esc(j.endereco.uf):'');
-        mostrar(j.criterio==='cidade'
-          ?'📍 Temos loja em <b>'+onde+'</b>! Esta é a nossa loja de <b>'+esc(rotulo(j.loja.codigo))+'</b>.'+TODAS
-          :'📍 A loja mais próxima de '+onde+' é a de <b>'+esc(rotulo(j.loja.codigo))+'</b>'+(j.distancia_km!=null?' (cerca de '+Math.max(1,Math.round(j.distancia_km))+' km)':'')+'.'+TODAS);
+        var nomeLoja=esc(alvo?alvo.nome:j.loja.nome);
+        var k=alvo?alvo.uf+'|'+alvo.cidade:'', outras=k&&cont[k]>1?' <button type="button" class="edc-bl-todas edc-bl-cidade" data-k="'+esc(k)+'">Ver as '+cont[k]+' lojas de '+esc(alvo.cidade)+'</button>':'';
+        mostrar((j.criterio==='cidade'
+          ?'📍 Temos loja em <b>'+onde+'</b>! A mais perto de você é a <b>'+nomeLoja+'</b>.'
+          :'📍 A loja mais próxima de '+onde+' é a <b>'+nomeLoja+'</b>'+(j.distancia_km!=null?' (cerca de '+Math.max(1,Math.round(j.distancia_km))+' km)':'')+'.')+outras+TODAS);
         try{(window.dataLayer=window.dataLayer||[]).push({event:'busca_loja_cep',loja:j.loja.codigo,criterio:j.criterio});}catch(e){}
       }).catch(function(){mostrar('Sem conexão. Tente de novo ou escolha a sua cidade na lista.',true);})
       .then(function(){btn.disabled=false;btn.textContent='Encontrar loja';});
@@ -5572,6 +5591,594 @@ filtro('realme');
 								</div>
 				</div>
 				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-florianopolis-shopping e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/florianopolis-shopping.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Florianópolis – Floripa Shopping"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>FLORIANÓPOLIS – FLORIPA SHOPPING</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Esquina Rod – BR-101, KM 210 – Distrito Industrial<br>São José – SC, 88104-800</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/5548996740519?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=florianopolis-shopping">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-blumenau e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/blumenau.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Blumenau – Centro"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>BLUMENAU</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Rua XV de Novembro, 500 – Centro<br>Blumenau – SC, 89010-000</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/554797930647?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=blumenau">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-blumenau-norte e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/blumenau-norte.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Blumenau – Norte Shopping"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>BLUMENAU – NORTE SHOPPING</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Rodovia BR-470, 3000 – Salto Norte<br>Blumenau – SC, 89065-800</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/554797641431?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=blumenau-norte">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-brusque e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/brusque.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Brusque"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>BRUSQUE</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Av. Cônsul Carlos Renaux, 112 – Centro<br>Brusque – SC, 88350-002</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/554799150831?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=brusque">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-criciuma e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/criciuma.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Criciúma"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>CRICIÚMA</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Rua Seis de Janeiro, 41 – Centro<br>Criciúma – SC, 88801-055</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/554896740532?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=criciuma">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-jaragua e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/jaragua.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Jaraguá do Sul"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>JARAGUÁ DO SUL</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Avenida Marechal Deodoro da Fonseca, 364 – Centro<br>Jaraguá do Sul – SC, 89251-700</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/5547996879496?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=jaragua">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-joinville-1 e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/joinville-1.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Joinville – Loja 1"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>JOINVILLE – LOJA 1</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Rua do Príncipe, 345 – Centro<br>Joinville – SC, 89201-050</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/554799380115?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=joinville-1">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-joinville-2 e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/joinville-2.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Joinville – Loja 2"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>JOINVILLE – LOJA 2</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Rua do Príncipe, 226 – Centro<br>Joinville – SC, 89201-000</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/554797842133?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=joinville-2">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-joinville-3 e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/joinville-3.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Joinville – Loja 3 Aventureiro"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>JOINVILLE – LOJA 3 AVENTUREIRO</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Rua Tuiuti, 2185 – Aventureiro<br>Joinville – SC, 89226-000</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/554796001929?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=joinville-3">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-palhoca e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/palhoca.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Palhoça"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>PALHOÇA</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Rua José Maria da Luz, 2896 – Centro<br>Palhoça – SC, 88131-000</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/554899210417?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=palhoca">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-tubarao e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/tubarao.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Tubarão"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>TUBARÃO</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Av. Marcolino Martins Cabral, 959 – Centro<br>Tubarão – SC, 88701-001</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/554896337387?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=tubarao">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-curitiba e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/curitiba.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Curitiba"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>CURITIBA</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Av. Sete de Setembro, 2775 – Rebouças<br>Curitiba – PR, 80230-010</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/554196498875?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=curitiba">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-colombo e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/colombo.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Colombo"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>COLOMBO</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>R. Dorval Ceccon, 664 – Jardim Nossa Sra. de Fátima<br>Colombo – PR, 83405-030</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/554197941210?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=colombo">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-porto-alegre e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/porto-alegre.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Porto Alegre"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>PORTO ALEGRE</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Rua Doutor Flores, 228 – Centro Histórico<br>Porto Alegre – RS, 90020-120</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/5551985680026?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=porto-alegre">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-cachoeirinha e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/cachoeirinha.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Cachoeirinha"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>CACHOEIRINHA</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Av. Gen. Flores da Cunha, 1996 – Vila Cachoeirinha<br>Cachoeirinha – RS, 94910-003</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/555184280042?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=cachoeirinha">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-canoas e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/canoas.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Canoas"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>CANOAS</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Rua Tiradentes, 330 – Centro<br>Canoas – RS, 92010-260</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/555185680043?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=canoas">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-caxias e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/caxias.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Caxias do Sul"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>CAXIAS DO SUL</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Rodovia RSC 453, 2780 – Desvio Rizzo<br>Caxias do Sul – RS, 95110-900</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/5554933809596?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=caxias">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-esteio e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/esteio.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Esteio"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>ESTEIO</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Av. Presidente Vargas, 1871 – Centro<br>Esteio – RS, 93260-001</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/555185941802?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=esteio">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-gravatai e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/gravatai.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Gravataí"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>GRAVATAÍ</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Avenida José Loureiro da Silva, 1527 – Centro<br>Gravataí – RS, 94010-001</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/555184280034?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=gravatai">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-novo-hamburgo e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/novo-hamburgo.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular Novo Hamburgo"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>NOVO HAMBURGO</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Rua Pedro Adams Filho, 5325 e 5327 – Centro<br>Novo Hamburgo – RS, 93510-025</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/555184280046?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=novo-hamburgo">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
+		<div class="elementor-element elementor-element-d107dee edc-loja-sao-leopoldo e-con-full e-flex e-con e-child" data-id="d107dee" data-element_type="container" data-e-type="container">
+		<div class="elementor-element elementor-element-f5b9d0e e-con-full e-flex e-con e-child" data-id="f5b9d0e" data-element_type="container" data-e-type="container">
+				<div class="elementor-element elementor-element-77f90ea elementor-widget__width-initial elementor-position-top elementor-widget elementor-widget-image-box" data-id="77f90ea" data-element_type="widget" data-e-type="widget" data-widget_type="image-box.default">
+					<div class="elementor-image-box-wrapper"><figure class="elementor-image-box-img"><img decoding="async" loading="lazy" width="800" height="800" src="fotos/sao-leopoldo.webp" class="attachment-full size-full edc-foto-loja" alt="Espaço do Celular São Leopoldo"></figure></div>				</div>
+				<div class="elementor-element elementor-element-eefd40e elementor-widget-mobile__width-initial elementor-widget elementor-widget-heading" data-id="eefd40e" data-element_type="widget" data-e-type="widget" data-widget_type="heading.default">
+					<h2 class="elementor-heading-title elementor-size-default"><span style="font-size: 2rem">📍</span>SÃO LEOPOLDO</h2>				</div>
+				<div class="elementor-element elementor-element-4bba642 elementor-widget elementor-widget-text-editor" data-id="4bba642" data-element_type="widget" data-e-type="widget" data-widget_type="text-editor.default">
+									<p>Rua Independência, 435 – Centro<br>São Leopoldo – RS, 93010-002</p>								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button edc-btn-wa-loja" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a target="_blank" rel="noopener" class="elementor-button elementor-button-link elementor-size-sm" href="https://wa.me/555184280032?text=Ol%C3%A1%21%20%F0%9F%91%8B%20Vim%20pelo%20site%20e%20gostaria%20de%20conhecer%20as%20op%C3%A7%C3%B5es%20dispon%C3%ADveis%20para%20comprar%20meu%20celular%20novo.%20%F0%9F%93%B1%F0%9F%98%8A">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-fab-whatsapp" viewBox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"></path></svg>			</span>
+									<span class="elementor-button-text">COMPRE PELO WHATSAPP</span>
+					</span>
+					</a>
+								</div>
+				<div class="elementor-element elementor-element-ea50880 elementor-mobile-align-center elementor-align-center btn4 elementor-widget__width-initial elementor-widget elementor-widget-button" data-id="ea50880" data-element_type="widget" data-e-type="widget" data-widget_type="button.default">
+										<a class="elementor-button elementor-button-link elementor-size-sm" href="pre-analise.html?loja=sao-leopoldo">
+						<span class="elementor-button-content-wrapper">
+						<span class="elementor-button-icon">
+				<svg aria-hidden="true" class="e-font-icon-svg e-far-clipboard" viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg"><path d="M336 64h-80c0-35.3-28.7-64-64-64s-64 28.7-64 64H48C21.5 64 0 85.5 0 112v352c0 26.5 21.5 48 48 48h288c26.5 0 48-21.5 48-48V112c0-26.5-21.5-48-48-48zM192 40c13.3 0 24 10.7 24 24s-10.7 24-24 24-24-10.7-24-24 10.7-24 24-24zm144 418c0 3.3-2.7 6-6 6H54c-3.3 0-6-2.7-6-6V118c0-3.3 2.7-6 6-6h42v36c0 6.6 5.4 12 12 12h168c6.6 0 12-5.4 12-12v-36h42c3.3 0 6 2.7 6 6z"></path></svg>			</span>
+									<span class="elementor-button-text">CLIQUE E FAÇA SUA PRÉ ANÁLISE!</span>
+					</span>
+					</a>
+								</div>
+				</div>
+				</div>
 		</div>
 					</div>
 				</div>
@@ -5666,7 +6273,7 @@ filtro('realme');
 <script>
 /* Central de leads: conta os cliques no botão "Compre pelo WhatsApp" de cada loja */
 (function(){
-  var NUM={'5547933868196':'itajai','5547996439174':'navegantes','5547997641397':'camboriu','5548996270809':'florianopolis'};
+  var NUM={};var L=window.EDC_LOJAS||{};Object.keys(L).forEach(function(k){if(L[k].whatsapp)NUM[L[k].whatsapp]=k;});
   function edcClique(d){try{var s=JSON.stringify(d);if(navigator.sendBeacon&&navigator.sendBeacon('/api/clique',new Blob([s],{type:'text/plain'})))return;fetch('/api/clique',{method:'POST',body:s,keepalive:true,headers:{'Content-Type':'text/plain'}}).catch(function(){});}catch(e){}}
   document.addEventListener('click',function(e){
     var a=e.target.closest&&e.target.closest('a[href*="wa.me/"]');if(!a)return;

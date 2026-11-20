@@ -1,7 +1,7 @@
 // Loja mais próxima pelo CEP.
 //   GET /api/loja-proxima?cep=88010020
 //   -> {ok, endereco:{cidade,uf,bairro}, loja:{codigo,nome}, distancia_km, criterio:"cidade"|"distancia", ranking:[{codigo,nome,distancia_km}]}
-// Regra: se a pessoa mora numa cidade onde temos loja, é essa loja. Senão, a loja de menor distância em linha reta.
+// Regra: se a pessoa mora numa cidade onde temos loja, é essa loja (com várias, a mais perto). Senão, a de menor distância em linha reta.
 // Serviços públicos usados (sem chave): ViaCEP (endereço do CEP), BrasilAPI (endereço/coordenadas, reserva)
 // e Nominatim/OpenStreetMap (coordenadas da cidade). O CEP não é guardado nem registrado em log.
 
@@ -78,11 +78,17 @@ async function buscar(cep) {
   if (!e) return { status: 404, corpo: { ok: false, erro: "cep_nao_encontrado" } };
   const base = { ok: true, endereco: { cidade: e.cidade, uf: e.uf, bairro: e.bairro } };
 
-  const daCidade = lojas.find((l) => norm(l.cidade) === norm(e.cidade) && norm(l.uf) === norm(e.uf));
+  // lojas que atendem a cidade do CEP (cidade da loja ou cidades extras em "cidadesBusca")
+  const naCidade = lojas.filter(
+    (l) => norm(l.uf) === norm(e.uf) && [l.cidade].concat(l.cidadesBusca || []).some((c) => norm(c) === norm(e.cidade))
+  );
   const pos = await coordenadas(e);
   const ranking = pos
     ? lojas.map((l) => ({ codigo: l.codigo, nome: l.nome, distancia_km: Math.round(km(pos, l) * 10) / 10 })).sort((a, b) => a.distancia_km - b.distancia_km)
     : [];
+  // várias lojas na mesma cidade: a mais perto do endereço (sem coordenadas, a primeira da lista)
+  const maisPerto = ranking.find((r) => naCidade.some((l) => l.codigo === r.codigo));
+  const daCidade = naCidade.length ? (maisPerto ? LOJAS[maisPerto.codigo] : naCidade[0]) : null;
 
   if (daCidade) {
     const d = ranking.find((r) => r.codigo === daCidade.codigo);

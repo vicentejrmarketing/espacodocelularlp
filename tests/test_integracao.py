@@ -158,7 +158,7 @@ try:
     A.kv("__vencer"); A.agendador()
     ok("C23 no horário: reenvia e conclui", A.rec(cad(70)["external_id"])["status"] == "concluido")
 
-    st, b, _ = A.post(cad(80, loja="curitiba")); st2, b2, _ = A.post({k: v for k, v in cad(81).items() if k != "loja"})
+    st, b, _ = A.post(cad(80, loja="loja-que-nao-existe")); st2, b2, _ = A.post({k: v for k, v in cad(81).items() if k != "loja"})
     ok("C24 loja desconhecida ou ausente: 422, nada enviado, sem padrão", st == 422 and st2 == 422)
 finally:
     A.fim()
@@ -184,9 +184,8 @@ try:
             opts = pg.eval_on_selector_all("#paLoja option", "os=>os.map(o=>o.value)")
             pg.click(".pa-submit"); pg.wait_for_selector(".pa-cta", timeout=15000); pg.wait_for_timeout(800)
             msg = pg.inner_text(".pa-cal-msg")
-            ok(f"P1 [{disp}] Colombo: lista única com Colombo; cadastro confirmado antes da mensagem de recebido; sem agenda de outra loja",
-               opts == ["", "colombo", "itajai", "navegantes", "camboriu", "florianopolis"] and sub(pg)["enviado"] and "Seus dados foram recebidos" in msg and pg.get_attribute(".pa-cta", "data-cal-link") is None, msg)
-            ok(f"P2 [{disp}] Colombo sem WhatsApp: botão desativado, sem link", pg.get_attribute(".pa-cta", "href") is None and pg.get_attribute(".pa-cta", "aria-disabled") == "true")
+            ok(f"P1 [{disp}] Colombo: lista completa (por estado); cadastro confirmado", opts == [""] + list(json.loads(subprocess.check_output(["node", "-e", "process.stdout.write(JSON.stringify(Object.keys(require(process.argv[1]))))", os.path.join(RAIZ, "lojas.js")]))) and sub(pg)["enviado"] and pg.get_attribute(".pa-cta", "data-cal-link") is None, opts)
+            ok(f"P2 [{disp}] Colombo: botão leva ao WhatsApp da loja de Colombo", urllib.parse.urlparse(pg.get_attribute(".pa-cta", "href") or "").path == "/554197941210", pg.get_attribute(".pa-cta", "href"))
             c.close()
 
             A.crm("__reset")

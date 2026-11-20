@@ -25,7 +25,7 @@ const ponto = (lat, lon) => () => ({ ok: true, status: 200, json: async () => [{
 (async () => {
   cenario = { viacep: cidade("Florianópolis", "SC", "Rua Deodoro"), nominatim: ponto(-27.5966, -48.5512) };
   let r = await chamar("88010-020");
-  ok("1 CEP de Florianópolis -> loja de Florianópolis (mesma cidade)", r.corpo.loja.codigo === "florianopolis" && r.corpo.criterio === "cidade", r.corpo);
+  ok("1 CEP do centro de Florianópolis -> Florianópolis – Centro (a mais perto das 2 da cidade)", r.corpo.loja.codigo === "florianopolis" && r.corpo.criterio === "cidade", r.corpo);
 
   cenario = { viacep: cidade("Navegantes", "SC"), nominatim: ponto(-26.9001, -48.6555) };
   r = await chamar("88370000");
@@ -37,11 +37,27 @@ const ponto = (lat, lon) => () => ({ ok: true, status: 200, json: async () => [{
 
   cenario = { viacep: cidade("São José", "SC"), nominatim: ponto(-27.6136, -48.6366) };
   r = await chamar("88101000");
-  ok("4 São José -> Florianópolis", r.corpo.loja.codigo === "florianopolis", r.corpo);
+  ok("4 São José -> Floripa Shopping (fica em São José)", r.corpo.loja.codigo === "florianopolis-shopping" && r.corpo.criterio === "cidade", r.corpo);
 
-  cenario = { viacep: cidade("Blumenau", "SC"), nominatim: ponto(-26.9194, -49.0661) };
-  r = await chamar("89010000");
-  ok("5 Blumenau -> Itajaí (a mais perto)", r.corpo.loja.codigo === "itajai" && r.corpo.ranking.length === 4, r.corpo);
+  cenario = { viacep: cidade("Blumenau", "SC"), nominatim: ponto(-26.8800, -49.0950) };
+  r = await chamar("89065000");
+  ok("5 Blumenau, bairro Salto Norte -> Blumenau – Norte Shopping", r.corpo.loja.codigo === "blumenau-norte" && r.corpo.ranking.length === 25, r.corpo);
+
+  cenario = { viacep: cidade("Joinville", "SC"), nominatim: ponto(-26.2600, -48.8200) };
+  r = await chamar("89226000");
+  ok("5b Joinville, Aventureiro -> Joinville Loja 3", r.corpo.loja.codigo === "joinville-3", r.corpo);
+
+  cenario = { viacep: cidade("Gaspar", "SC"), nominatim: ponto(-26.9310, -48.9590) };
+  r = await chamar("89110000");
+  ok("5c Gaspar (sem loja) -> Blumenau ou Brusque, a mais perto", ["blumenau", "brusque"].includes(r.corpo.loja.codigo) && r.corpo.criterio === "distancia", r.corpo);
+
+  cenario = { viacep: cidade("Sapucaia do Sul", "RS"), nominatim: ponto(-29.8410, -51.1450) };
+  r = await chamar("93210000");
+  ok("5d Sapucaia do Sul (RS) -> Esteio", r.corpo.loja.codigo === "esteio", r.corpo);
+
+  cenario = { viacep: cidade("Pinhais", "PR"), nominatim: ponto(-25.4440, -49.1920) };
+  r = await chamar("83320000");
+  ok("5e Pinhais (PR) -> Curitiba ou Colombo", ["curitiba", "colombo"].includes(r.corpo.loja.codigo), r.corpo);
 
   cenario = { viacep: cidade("Camboriú", "SC") };
   r = await chamar("88340000");
@@ -62,8 +78,8 @@ const ponto = (lat, lon) => () => ({ ok: true, status: 200, json: async () => [{
   r = await chamar("123");
   ok("10 CEP inválido -> 400", r.status === 400 && r.corpo.erro === "cep_invalido", r);
 
-  cenario = { viacep: cidade("Gaspar", "SC") };
-  r = await chamar("89110000");
+  cenario = { viacep: cidade("Ilhota", "SC") };
+  r = await chamar("88320000");
   ok("11 cidade sem loja e sem coordenadas -> 503 localizacao_indisponivel", r.status === 503 && r.corpo.erro === "localizacao_indisponivel", r);
 
   console.log(`\nRESUMO: ${total - falhas} de ${total} passaram`);

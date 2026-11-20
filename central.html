@@ -380,7 +380,7 @@ h2{font-size:16px;font-weight:800;margin:26px 0 10px}
       .then(function(x){
         if(x.s===401){sair('Sua sessão expirou. Entre novamente.');return;}
         if(!x.j.ok){$('atualizado').textContent='Não foi possível atualizar agora. Tentando de novo em 1 minuto.';return;}
-        D=x.j;mostrarPainel(true);
+        D=x.j;(D.lojas||[]).forEach(function(l){if(l&&l.codigo&&!NOMES[l.codigo])NOMES[l.codigo]=l.nome;});mostrarPainel(true);
         var foco=document.activeElement;if((foco&&foco.classList&&foco.classList.contains('st'))||$('mStatus').classList.contains('aberto'))return;
         render();
       })

@@ -5256,7 +5256,10 @@ src="https://www.facebook.com/tr?id=1766117667996629&ev=PageView&noscript=1"
 
   /* ---------- Formulário ---------- */
   var sel=document.getElementById('paLoja');
-  Object.keys(LOJAS).forEach(function(k){var o=document.createElement('option');o.value=k;o.textContent=LOJAS[k].nome;sel.appendChild(o);});
+  (function(){var UFS={SC:'Santa Catarina',PR:'Paraná',RS:'Rio Grande do Sul'},grupos={},ordem=[];
+    Object.keys(LOJAS).forEach(function(k){var uf=LOJAS[k].uf||'';if(!grupos[uf]){grupos[uf]=document.createElement('optgroup');grupos[uf].label=UFS[uf]||uf||'Lojas';ordem.push(uf);}
+      var o=document.createElement('option');o.value=k;o.textContent=LOJAS[k].nome;grupos[uf].appendChild(o);});
+    ordem.forEach(function(uf){sel.appendChild(grupos[uf]);});})();
   var q=(new URLSearchParams(location.search).get('loja')||'').toLowerCase();
   if(LOJAS[q])sel.value=q; else sel.value='';
   var tel=document.getElementById('paTel'),cpf=document.getElementById('paCpf'),nome=document.getElementById('paNome');
