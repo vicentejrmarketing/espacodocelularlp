@@ -54,7 +54,11 @@ function baseSupabase(env) {
         signal: ctrl.signal,
       });
       const j = await r.json().catch(() => null);
-      if (!r.ok) throw new Error("supabase_" + r.status);
+      if (!r.ok) {
+        const e = new Error("supabase_" + r.status);
+        e.codigo = j && j.code; // ex.: PGRST202 = função não existe no banco
+        throw e;
+      }
       return j;
     } finally {
       clearTimeout(t);
@@ -66,6 +70,12 @@ function baseSupabase(env) {
     clique: (loja, origem, dedupe, leadId) => rpc("central_clique", { p_loja: loja, p_origem: origem, p_dedupe: dedupe, p_lead_id: leadId || "" }),
     tentativas: (chave, acao) => rpc("central_tentativas", { p_chave: chave, p_acao: acao }).then(Number),
     dados: (lojas, dias) => rpc("central_dados", { p_lojas: lojas, p_dias: dias }),
+    // Confere usuário e senha no banco (bcrypt). null = não confere. Erro "sem_login" = função ainda não criada.
+    login: (usuario, senha) =>
+      rpc("central_login", { p_usuario: String(usuario || "").slice(0, 200), p_senha: String(senha || "").slice(0, 200) }).catch((e) => {
+        if (e.codigo === "PGRST202" || e.message === "supabase_404") throw Object.assign(new Error("sem_login"), { semLogin: true });
+        throw e;
+      }),
     status: (id, lojas, status, por, det) =>
       rpc("central_status", { p_id: id, p_lojas: lojas, p_status: status, p_por: por, p_motivo: det.motivo_recusa || null, p_produto: det.compra_produto || null, p_valor: det.compra_valor == null ? null : det.compra_valor }).then(Boolean),
   };
@@ -196,6 +206,7 @@ function acessoPorEmail(env, email) {
 }
 function acessoAtivo(env, acesso) {
   if (acesso === "geral" && senhaDe(env, "geral") && env.CENTRAL_GERAL_EMAIL) return true;
+  if (ACESSOS[acesso] && env.CENTRAL_SUPABASE_URL && env.CENTRAL_DB_SEGREDO) return true; // acessos guardados no banco
   return !!((acesso !== "geral" && senhaDe(env, acesso)) || Object.values(porEmail()).some((x) => x.acesso === acesso));
 }
 function scryptConfere(senha, guardado) {
@@ -225,7 +236,8 @@ function chaveSessao(env) {
     "edc-central-sessao|" +
       Object.keys(ACESSOS).map((a) => senhaDe(env, a) || "").join("|") +
       "|" + Object.values(porEmail()).map((x) => x.senha).join("|") +
-      "|" + (env.KV_REST_API_TOKEN || env.UPSTASH_REDIS_REST_TOKEN || "")
+      "|" + (env.KV_REST_API_TOKEN || env.UPSTASH_REDIS_REST_TOKEN || "") +
+      "|" + (env.CENTRAL_DB_SEGREDO || "")
   );
 }
 function iguais(a, b) {
@@ -256,10 +268,27 @@ async function entrar(env, { email, senha, ip }) {
   if (!b) return { ok: false, status: 503, erro: "armazenamento_nao_configurado" };
   const kt = hash(ip || "?");
   if ((await b.tentativas(kt, "ver")) >= 10) return { ok: false, status: 429, erro: "muitas_tentativas" };
-  const acesso = acessoPorEmail(env, email);
+  let acesso = null;
   let certo = false;
-  if (acesso && acessoAtivo(env, acesso)) certo = senhaConfere(env, acesso, email, senha || "");
-  else scryptConfere(senha || "", RESUMO_FALSO); // mesmo tempo de resposta para e-mail desconhecido
+  let noBanco = false;
+  if (b.login) {
+    try {
+      const r = await b.login(email, senha);
+      noBanco = true;
+      if (r && ACESSOS[r]) { acesso = r; certo = true; }
+    } catch (e) {
+      if (!e.semLogin) throw e; // banco fora do ar: erro 503 lá fora
+    }
+  }
+  if (!certo) {
+    // Conferência antiga (variável CENTRAL_ACESSOS) e senhas trocadas pela Vercel (CENTRAL_SENHA_<LOJA>)
+    const doEnv = acessoPorEmail(env, email);
+    if (doEnv && (senhaDe(env, doEnv) || !noBanco) && acessoAtivo(env, doEnv)) {
+      if (senhaConfere(env, doEnv, email, senha || "")) { acesso = doEnv; certo = true; }
+    } else if (!noBanco) {
+      scryptConfere(senha || "", RESUMO_FALSO); // mesmo tempo de resposta para e-mail desconhecido
+    }
+  }
   if (!certo) {
     await b.tentativas(kt, "erro");
     return { ok: false, status: 401, erro: "acesso_incorreto" };

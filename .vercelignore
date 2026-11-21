@@ -3,3 +3,9 @@ INTEGRACAO-CRM.md
 .env.example
 .gitignore
 COMO-ATIVAR.txt
+
+# Cloudflare Pages (não usado pela Vercel)
+functions/
+cloudflare/
+wrangler.toml
+dist/

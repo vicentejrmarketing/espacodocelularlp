@@ -68,6 +68,8 @@ try:
     patch(T["itajai"], {"id": ids["itajai"], "status": "em_atendimento"})
     L = painel(T["itajai"])[1]["leads"][0]
     ok("T9 ao sair de Comprou/Recusado os detalhes antigos somem", L["status"] == "em_atendimento" and "compra_produto" not in L and "compra_valor" not in L, L)
+    if MODO == "supabase":
+        ok("S1 login conferido no banco: usuário que só existe no banco entra", login_email("so-no-banco@teste.invalid", "Teste-Banco-1")[1].get("acesso") == "camboriu")
     ok("L9 clique de loja inválida é recusado", req("POST", "/api/clique", {"loja": "xpto", "origem": "site"}, {"content-type": "text/plain"})[0] == 422)
 
     with sync_playwright() as p:

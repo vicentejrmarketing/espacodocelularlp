@@ -138,7 +138,7 @@ Object.assign(process.env, {
 if (process.env.SIM_SUPA_PG) {
   const { Pool } = require(process.env.SIM_PG_MODULE || "pg");
   const pool = new Pool({ connectionString: process.env.SIM_SUPA_PG, max: 4 });
-  const ARGS = { central_salvar_lead: ["p_segredo", "p_lead"], central_clique: ["p_segredo", "p_loja", "p_origem", "p_dedupe", "p_lead_id"], central_tentativas: ["p_segredo", "p_chave", "p_acao"], central_dados: ["p_segredo", "p_lojas", "p_dias"], central_status: ["p_segredo", "p_id", "p_lojas", "p_status", "p_por", "p_motivo", "p_produto", "p_valor"] };
+  const ARGS = { central_salvar_lead: ["p_segredo", "p_lead"], central_clique: ["p_segredo", "p_loja", "p_origem", "p_dedupe", "p_lead_id"], central_tentativas: ["p_segredo", "p_chave", "p_acao"], central_dados: ["p_segredo", "p_lojas", "p_dias"], central_status: ["p_segredo", "p_id", "p_lojas", "p_status", "p_por", "p_motivo", "p_produto", "p_valor"], central_login: ["p_segredo", "p_usuario", "p_senha"] };
   http.createServer((req, res) => {
     let b = ""; req.on("data", (c) => (b += c)); req.on("end", async () => {
       const m = /^\/rest\/v1\/rpc\/(\w+)$/.exec(req.url);
@@ -151,7 +151,12 @@ if (process.env.SIM_SUPA_PG) {
         const r = await cli.query(`select public.${m[1]}(${nomes.map((n, i) => n + " => $" + (i + 1)).join(", ")}) as r`, vals);
         await cli.query("commit");
         res.setHeader("content-type", "application/json"); res.end(JSON.stringify(r.rows[0].r));
-      } catch (e) { await cli.query("rollback").catch(() => {}); res.statusCode = 400; res.end(JSON.stringify({ message: String(e.message) })); }
+      } catch (e) {
+        await cli.query("rollback").catch(() => {});
+        // igual ao PostgREST do Supabase: função inexistente = 404 PGRST202
+        if (e.code === "42883") { res.statusCode = 404; return res.end(JSON.stringify({ code: "PGRST202", message: String(e.message) })); }
+        res.statusCode = 400; res.end(JSON.stringify({ message: String(e.message) }));
+      }
       finally { cli.release(); }
     });
   }).listen(PORT + 3);

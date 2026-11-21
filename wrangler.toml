@@ -1,0 +1,9 @@
+# Configuração do Cloudflare Pages (o painel usa este arquivo).
+# Segredos (CENTRAL_SUPABASE_KEY, CENTRAL_DB_SEGREDO etc.) ficam só no painel do Cloudflare.
+name = "espacodocelular"
+pages_build_output_dir = "dist"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+CENTRAL_SUPABASE_URL = "https://dkrgdzsolckiktoeptmm.supabase.co"
