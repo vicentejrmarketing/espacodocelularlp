@@ -28,7 +28,7 @@
       calLink: "espacodocelular/agendamento-na-loja",
       calEventTypeId: null,
       fuso: "America/Sao_Paulo",
-      whatsapp: "5547933868196",
+      whatsapp: "5547933875721",
       vitrine: true,
       cidade: "Itajaí",
       uf: "SC",
