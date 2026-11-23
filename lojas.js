@@ -49,6 +49,24 @@
       fuso: "America/Sao_Paulo",
       whatsapp: "5547999151352",
     },
+    florianopolis: {
+      codigo: "florianopolis",
+      nome: "Florianópolis",
+      calLink: null,
+      calEventTypeId: null,
+      fuso: "America/Sao_Paulo",
+      whatsapp: "5548996270809",
+      endereco: "Rua Deodoro, 221 – Centro, Florianópolis – SC, 88010-020",
+      horario: ["SEG a SEX - 09h às 18h30", "SÁBADO - 09h às 16h"],
+    },
+    outra: {
+      codigo: "outra",
+      nome: "Outra cidade",
+      calLink: null,
+      calEventTypeId: null,
+      fuso: "America/Sao_Paulo",
+      whatsapp: "5547999151352",
+    },
   };
   if (typeof module !== "undefined" && module.exports) module.exports = LOJAS;
   else raiz.EDC_LOJAS = LOJAS;

@@ -101,6 +101,7 @@
   }
 
   /* ---------- Tela de pré-aprovação + botão do WhatsApp do vendedor ---------- */
+  function esc(x){return String(x==null?'':x).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function fmtTel(t){var d=dig(t).replace(/^55/,'');return d.length>=10?'('+d.slice(0,2)+') '+d.slice(2,d.length-4)+'-'+d.slice(-4):t;}
   function mostrarAprovado(box,sub,retomada){
     var p=sub.payload,l=LOJAS[p.loja];
@@ -115,7 +116,15 @@
     } else {
       /* Mensagem pronta para o vendedor: nome, telefone e loja. CPF NÃO vai no link do WhatsApp. */
       var texto='Olá! Vim pelo site e gostaria de conhecer as opções disponíveis para comprar meu celular novo.';
-      a.href='https://wa.me/'+WA_VENDEDOR+'?text='+encodeURIComponent(texto);
+      /* Florianópolis: vai para o WhatsApp da loja de Florianópolis com os dados do formulário */
+      if(p.loja==='florianopolis')texto+='\n\n*Nome:* '+p.nome+'\n*Telefone:* '+fmtTel(p.telefone)+'\n*Cidade:* '+l.nome;
+      var numero=(l&&l.whatsapp)||WA_VENDEDOR;
+      a.href='https://wa.me/'+numero+'?text='+encodeURIComponent(texto);
+      if(l&&l.endereco){
+        var card=document.createElement('div');card.className='pa-loja';
+        card.innerHTML='<b>📍 Loja '+esc(l.nome)+'</b><span>'+esc(l.endereco)+'</span>'+(l.horario||[]).map(function(h){return '<span>🕜 '+esc(h)+'</span>';}).join('');
+        a.parentNode.insertBefore(card,a.nextSibling);
+      }
       a.addEventListener('click',function(){try{(window.dataLayer=window.dataLayer||[]).push({event:'clique_whatsapp_vendedor',loja:p.loja});}catch(e){}});
     }
     atualizarEstado();
@@ -184,9 +193,13 @@
 
 /* ---------- Formulário ---------- */
   /* Sem escolha de loja no formulário: usa a loja do link (?loja=) ou a loja padrão */
-  var LOJA_PADRAO='itajai';
   var q=(new URLSearchParams(location.search).get('loja')||'').toLowerCase();
-  var lojaEscolhida=LOJAS[q]?q:LOJA_PADRAO;
+  var sel=document.getElementById('paCidade');
+  if(sel){
+    ['florianopolis','itajai','navegantes','camboriu','colombo','outra'].forEach(function(k){if(!LOJAS[k])return;var o=document.createElement('option');o.value=k;o.textContent=LOJAS[k].nome;sel.appendChild(o);});
+    if(LOJAS[q])sel.value=q;
+    sel.addEventListener('change',function(){mark(sel,false);});
+  }
   var tel=document.getElementById('paTel'),cpf=document.getElementById('paCpf'),nome=document.getElementById('paNome');
   tel.addEventListener('input',function(){var d=dig(tel.value).slice(0,11),o='';if(d.length>0)o='('+d.slice(0,2);if(d.length>=3)o+=') '+d.slice(2,d.length>10?7:6);if(d.length>=(d.length>10?8:7))o+='-'+d.slice(d.length>10?7:6);tel.value=o;});
   cpf.addEventListener('input',function(){var d=dig(cpf.value).slice(0,11),o=d.slice(0,3);if(d.length>3)o+='.'+d.slice(3,6);if(d.length>6)o+='.'+d.slice(6,9);if(d.length>9)o+='-'+d.slice(9);cpf.value=o;});
@@ -205,12 +218,12 @@
   if(formEl)formEl.addEventListener('submit',function(e){
     e.preventDefault();
     if(enviando)return;
-    var b1=nome.value.trim().length<3,b2=dig(tel.value).length<10,b3=!cpfOk(cpf.value);
-    mark(nome,b1);mark(tel,b2);mark(cpf,b3);
-    if(b1||b2||b3){(b1?nome:b2?tel:cpf).focus();return;}
+    var b1=nome.value.trim().length<3,b2=dig(tel.value).length<10,b3=!cpfOk(cpf.value),b4=!sel||!LOJAS[sel.value];
+    mark(nome,b1);mark(tel,b2);mark(cpf,b3);if(sel)mark(sel,b4);
+    if(b1||b2||b3||b4){(b1?nome:b2?tel:b3?cpf:sel).focus();return;}
     enviando=true;
     var NOME=nome.value.trim().replace(/\s+/g,' ');
-    var sub=registrarSubmissao(NOME,tel.value,cpf.value,lojaEscolhida);
+    var sub=registrarSubmissao(NOME,tel.value,cpf.value,sel.value);
     enviarCadastro();
     location.href='analise.html'+hashDe(sub);
   });
