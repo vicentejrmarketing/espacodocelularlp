@@ -349,6 +349,10 @@
       lon: -51.147,
     },
   };
+  /* WhatsApp único de vendas: todos os botões "Compre pelo WhatsApp" e "Finalize a compra com vendedor"
+     vão para este número (o campo whatsapp de cada loja continua registrado acima).
+     Não enumerável: não aparece como loja ao percorrer a lista. */
+  Object.defineProperty(LOJAS, "whatsappVendas", { value: "554799151352", enumerable: false });
   if (typeof module !== "undefined" && module.exports) module.exports = LOJAS;
   else raiz.EDC_LOJAS = LOJAS;
 })(this);

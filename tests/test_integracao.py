@@ -185,7 +185,7 @@ try:
             pg.click(".pa-submit"); pg.wait_for_selector(".pa-cta", timeout=15000); pg.wait_for_timeout(800)
             msg = pg.inner_text(".pa-cal-msg")
             ok(f"P1 [{disp}] Colombo: lista completa (por estado); cadastro confirmado", opts == [""] + list(json.loads(subprocess.check_output(["node", "-e", "process.stdout.write(JSON.stringify(Object.keys(require(process.argv[1]))))", os.path.join(RAIZ, "lojas.js")]))) and sub(pg)["enviado"] and pg.get_attribute(".pa-cta", "data-cal-link") is None, opts)
-            ok(f"P2 [{disp}] Colombo: botão leva ao WhatsApp da loja de Colombo", urllib.parse.urlparse(pg.get_attribute(".pa-cta", "href") or "").path == "/554197941210", pg.get_attribute(".pa-cta", "href"))
+            ok(f"P2 [{disp}] Colombo: botão leva ao WhatsApp único de vendas", urllib.parse.urlparse(pg.get_attribute(".pa-cta", "href") or "").path == "/554799151352", pg.get_attribute(".pa-cta", "href"))
             c.close()
 
             A.crm("__reset")
@@ -195,8 +195,11 @@ try:
             u = pg.get_attribute(".pa-cta", "href") or ""; q = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(u).query))
             idp = sub(pg)["payload"]["external_id"]
             ok(f"P3 [{disp}] cadastro enviado antes do botão; clique duplo: 1 envio", antes == 1 and len(A.log()["recebidos"]) == 1 and not pg.abas)
-            ok(f"P4 [{disp}] botão leva ao WhatsApp da loja escolhida com nome, telefone e loja", urllib.parse.urlparse(u).netloc == "wa.me" and urllib.parse.urlparse(u).path == "/5547933875721" and "Pessoa Sintetica" in q.get("text", "") and "Itajaí" in q.get("text", "") and "FINALIZE A COMPRA COM VENDEDOR" in pg.inner_text(".pa-cta"), u)
-            ok(f"P5 [{disp}] nenhum CPF no link do WhatsApp", "52998224725" not in u.replace(".", "").replace("-", "") and "cpf" not in u.lower())
+            ok(f"P4 [{disp}] botão leva ao WhatsApp único de vendas com nome, telefone e loja", urllib.parse.urlparse(u).netloc == "wa.me" and urllib.parse.urlparse(u).path == "/554799151352" and "Pessoa Sintetica" in q.get("text", "") and "Itajaí" in q.get("text", "") and "FINALIZE A COMPRA COM VENDEDOR" in pg.inner_text(".pa-cta"), u)
+            ok(f"P5 [{disp}] CPF fora do link visível (href) do WhatsApp", "52998224725" not in u.replace(".", "").replace("-", "") and "cpf" not in u.lower())
+            aberto = pg.evaluate("()=>{let x=null;const o=window.open;window.open=(u)=>{x=u;return {opener:1}};document.querySelector('.pa-cta').click();window.open=o;return x}") or ""
+            ta = dict(urllib.parse.parse_qsl(urllib.parse.urlparse(aberto).query)).get("text", "")
+            ok(f"P5b [{disp}] no clique, a mensagem aberta tem nome, telefone, CPF e loja", urllib.parse.urlparse(aberto).path == "/554799151352" and "Pessoa Sintetica" in ta and "*CPF:* 529.982.247-25" in ta and "(47) 00000-0002" in ta and "Itajaí" in ta, ta)
             pg.goto(A.base + "/pre-analise.html?loja=itajai"); pg.wait_for_timeout(700)
             ok(f"P6 [{disp}] retomada após recarregar: mesmo id, sem novo envio", pg.locator(".pa-cta").count() == 1 and sub(pg)["payload"]["external_id"] == idp and len(A.log()["recebidos"]) == 1)
             ok(f"P7 [{disp}] sem erros de JavaScript", not pg.erros, pg.erros)
@@ -214,7 +217,7 @@ try:
 
             c, pg = pagina(b, w, A, bloquear_cal=True); preencher(pg, A, "camboriu", "47000000005"); pg.click(".pa-submit"); pg.wait_for_selector(".pa-cta", timeout=15000)
             u10 = pg.get_attribute(".pa-cta", "href") or ""
-            ok(f"P10 [{disp}] Camboriú: WhatsApp 5547997641397; página não carrega Cal.com", urllib.parse.urlparse(u10).path == "/5547997641397" and pg.evaluate("typeof window.Cal") == "undefined", u10)
+            ok(f"P10 [{disp}] Camboriú: WhatsApp único de vendas; página não carrega Cal.com", urllib.parse.urlparse(u10).path == "/554799151352" and pg.evaluate("typeof window.Cal") == "undefined", u10)
             c.close()
         b.close()
 finally:

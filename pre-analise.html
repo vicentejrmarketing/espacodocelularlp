@@ -5230,6 +5230,8 @@ src="https://www.facebook.com/tr?id=1766117667996629&ev=PageView&noscript=1"
 
   /* ---------- Tela de pré-aprovação + botão do WhatsApp do vendedor ---------- */
   function edcClique(d){try{var s=JSON.stringify(d);if(navigator.sendBeacon&&navigator.sendBeacon('/api/clique',new Blob([s],{type:'text/plain'})))return;fetch('/api/clique',{method:'POST',body:s,keepalive:true,headers:{'Content-Type':'text/plain'}}).catch(function(){});}catch(e){}}
+  var CPF_SESSAO='';
+  function fmtCpf(c){c=dig(c);return c.length===11?c.slice(0,3)+'.'+c.slice(3,6)+'.'+c.slice(6,9)+'-'+c.slice(9):c;}
   function fmtTel(t){var d=dig(t).replace(/^55/,'');return d.length>=10?'('+d.slice(0,2)+') '+d.slice(2,d.length-4)+'-'+d.slice(-4):t;}
   function mostrarAprovado(box,sub,retomada){
     var p=sub.payload,l=LOJAS[p.loja];
@@ -5237,18 +5239,31 @@ src="https://www.facebook.com/tr?id=1766117667996629&ev=PageView&noscript=1"
     box.querySelector('.pa-nome').textContent=p.nome.replace(/\s+/g,' ');
     var a=box.querySelector('.pa-cta');
     a.innerHTML=WA_SVG+'FINALIZE A COMPRA COM VENDEDOR';
-    if(!l.whatsapp){
+    if(!(LOJAS.whatsappVendas||l.whatsapp)){
       a.removeAttribute('target');a.setAttribute('aria-disabled','true');a.classList.add('pa-sem-agenda');
       a.addEventListener('click',function(e){e.preventDefault();});
       box.querySelector('.pa-cal-msg').setAttribute('data-sem-agenda',l.nome);
     } else {
-      /* Mensagem pronta para o vendedor: nome, telefone e loja. CPF NÃO vai no link do WhatsApp. */
-      var texto='Olá! Fiz minha pré-análise pelo site e meu perfil foi pré-aprovado. Quero finalizar minha compra. 📱\n\n'+
+      /* Mensagem pronta para o vendedor: nome, telefone, CPF e loja, para o WhatsApp único de vendas.
+         O link visível (href) leva a mensagem SEM o CPF; o CPF só entra no endereço aberto no clique,
+         para não ficar exposto a ferramentas de análise que leem os links da página. */
+      var waNum=LOJAS.whatsappVendas||l.whatsapp;
+      var cpfV=p.cpf||CPF_SESSAO||'';
+      var msg=function(comCpf){return 'Olá! Fiz minha pré-análise pelo site e meu perfil foi pré-aprovado. Quero finalizar minha compra. 📱\n\n'+
         '*Nome:* '+p.nome.replace(/\s+/g,' ')+'\n'+
         '*Telefone:* '+fmtTel(p.telefone)+'\n'+
-        '*Loja:* '+l.nome;
-      a.href='https://wa.me/'+l.whatsapp+'?text='+encodeURIComponent(texto);
-      a.addEventListener('click',function(){try{(window.dataLayer=window.dataLayer||[]).push({event:'clique_whatsapp_vendedor',loja:p.loja});}catch(e){}edcClique({loja:p.loja,origem:'pre-analise',id:p.external_id});});
+        (comCpf&&cpfV?'*CPF:* '+fmtCpf(cpfV)+'\n':'')+
+        '*Loja:* '+l.nome;};
+      a.href='https://wa.me/'+waNum+'?text='+encodeURIComponent(msg(false));
+      a.addEventListener('click',function(e){
+        try{(window.dataLayer=window.dataLayer||[]).push({event:'clique_whatsapp_vendedor',loja:p.loja});}catch(er){}
+        edcClique({loja:p.loja,origem:'pre-analise',id:p.external_id});
+        if(!cpfV)return;
+        e.preventDefault();
+        var url='https://wa.me/'+waNum+'?text='+encodeURIComponent(msg(true)),w=null;
+        try{w=window.open(url,'_blank');}catch(er){}
+        if(w){try{w.opener=null;}catch(er){}}else{location.href=url;}
+      });
     }
     atualizarEstado();
     var nova=box.querySelector('.pa-nova');
@@ -5294,6 +5309,7 @@ src="https://www.facebook.com/tr?id=1766117667996629&ev=PageView&noscript=1"
     if(b1||b2||b3||b4){(b1?nome:b2?tel:b3?cpf:sel).focus();return;}
     enviando=true;
     var NOME=nome.value.trim().replace(/\s+/g,' ');
+    CPF_SESSAO=dig(cpf.value);
     var sub=registrarSubmissao(NOME,tel.value,cpf.value,sel.value);
     enviarCadastro();
     box.innerHTML='<div class="pa-step"><div class="pa-spin"></div><h2>ANALISANDO SEUS DADOS</h2><p>Aguarde um instante, estamos verificando as condições disponíveis para você.</p><div class="pa-bar"><i></i></div><div class="pa-etapa">Analisando seu nome...</div><div class="pa-pct">0%</div></div>';
