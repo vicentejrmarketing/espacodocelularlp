@@ -5247,7 +5247,7 @@ src="https://www.facebook.com/tr?id=1766117667996629&ev=PageView&noscript=1"
       /* Mensagem pronta para o vendedor: nome, telefone, CPF e loja, para o WhatsApp único de vendas.
          O link visível (href) leva a mensagem SEM o CPF; o CPF só entra no endereço aberto no clique,
          para não ficar exposto a ferramentas de análise que leem os links da página. */
-      var waNum=LOJAS.whatsappVendas||l.whatsapp;
+      var waNum=(l.whatsappProprio&&l.whatsapp)||LOJAS.whatsappVendas||l.whatsapp;
       var cpfV=p.cpf||CPF_SESSAO||'';
       var msg=function(comCpf){return 'Olá! Fiz minha pré-análise pelo site e meu perfil foi pré-aprovado. Quero finalizar minha compra. 📱\n\n'+
         '*Nome:* '+p.nome.replace(/\s+/g,' ')+'\n'+

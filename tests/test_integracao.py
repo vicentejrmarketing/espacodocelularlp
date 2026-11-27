@@ -219,6 +219,10 @@ try:
             u10 = pg.get_attribute(".pa-cta", "href") or ""
             ok(f"P10 [{disp}] Camboriú: WhatsApp único de vendas; página não carrega Cal.com", urllib.parse.urlparse(u10).path == "/554799151352" and pg.evaluate("typeof window.Cal") == "undefined", u10)
             c.close()
+            c, pg = pagina(b, w, A, bloquear_cal=True); preencher(pg, A, "navegantes", "47000000006"); pg.click(".pa-submit"); pg.wait_for_selector(".pa-cta", timeout=15000)
+            u11 = pg.get_attribute(".pa-cta", "href") or ""
+            ok(f"P11 [{disp}] Navegantes: WhatsApp próprio da loja (47 9645-2992)", urllib.parse.urlparse(u11).path == "/554796452992" and "Navegantes" in dict(urllib.parse.parse_qsl(urllib.parse.urlparse(u11).query)).get("text", ""), u11)
+            c.close()
         b.close()
 finally:
     A.fim()

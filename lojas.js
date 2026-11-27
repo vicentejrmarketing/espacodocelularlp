@@ -9,7 +9,8 @@
    calLink         "usuario/evento" do Cal.com dessa loja (null = agenda ainda não configurada)
    calEventTypeId  ID numérico do evento no Cal.com (preencher com o valor real; não inventar)
    fuso            fuso horário da agenda da loja
-   whatsapp        número do WhatsApp do vendedor (botão "Finalize a compra com vendedor"; null = sem botão)
+   whatsapp        número do WhatsApp da loja
+   whatsappProprio true = os botões desta loja usam o número acima em vez do WhatsApp único de vendas (whatsappVendas, no fim do arquivo)
    vitrine         true = a loja tem card na página principal e entra na busca por CEP / cidade
    cidade, uf      cidade da loja (busca por CEP: quem mora nessa cidade vai para esta loja)
    lat, lon        posição aproximada da loja, usada para achar a loja mais próxima pelo CEP
@@ -41,7 +42,8 @@
       calLink: "espacodocelular/agendamento-na-loja",
       calEventTypeId: null,
       fuso: "America/Sao_Paulo",
-      whatsapp: "5547996439174",
+      whatsapp: "554796452992",
+      whatsappProprio: true,
       vitrine: true,
       cidade: "Navegantes",
       uf: "SC",
@@ -350,7 +352,7 @@
     },
   };
   /* WhatsApp único de vendas: todos os botões "Compre pelo WhatsApp" e "Finalize a compra com vendedor"
-     vão para este número (o campo whatsapp de cada loja continua registrado acima).
+     vão para este número, exceto lojas com whatsappProprio: true (o campo whatsapp de cada loja continua registrado acima).
      Não enumerável: não aparece como loja ao percorrer a lista. */
   Object.defineProperty(LOJAS, "whatsappVendas", { value: "554799151352", enumerable: false });
   if (typeof module !== "undefined" && module.exports) module.exports = LOJAS;
